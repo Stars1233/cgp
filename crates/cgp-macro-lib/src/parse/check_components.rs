@@ -2,12 +2,17 @@ use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::token::{Bracket, Colon, Comma, For, Lt, Where};
-use syn::{Ident, Type, WhereClause, braced, bracketed};
+use syn::token::{Bracket, Colon, Comma, For, Lt, Pound, Where};
+use syn::{Ident, Type, WhereClause, braced, bracketed, parenthesized};
 
 use crate::parse::ImplGenerics;
 
+pub struct CheckComponentsSpecs {
+    pub specs: Vec<CheckComponents>,
+}
+
 pub struct CheckComponents {
+    pub check_provider: Option<Vec<Type>>,
     pub impl_generics: ImplGenerics,
     pub trait_name: Ident,
     pub context_type: Type,
@@ -29,8 +34,46 @@ struct ParseCheckEntries {
     pub entries: Vec<CheckEntry>,
 }
 
+impl Parse for CheckComponentsSpecs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut specs = Vec::new();
+
+        while !input.is_empty() {
+            let spec: CheckComponents = input.parse()?;
+            specs.push(spec);
+        }
+
+        Ok(Self { specs })
+    }
+}
+
 impl Parse for CheckComponents {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let check_provider = if input.peek(Pound) {
+            let _: Pound = input.parse()?;
+
+            let content;
+            bracketed!(content in input);
+
+            let command: Ident = content.parse()?;
+            if command != "check_providers" {
+                return Err(syn::Error::new(
+                    command.span(),
+                    "expected `check_providers` attribute",
+                ));
+            }
+
+            let raw_providers;
+            parenthesized!(raw_providers in content);
+
+            let provider_types: Punctuated<Type, Comma> =
+                Punctuated::parse_terminated(&raw_providers)?;
+
+            Some(provider_types.into_iter().collect())
+        } else {
+            None
+        };
+
         let impl_generics = if input.peek(Lt) {
             input.parse()?
         } else {
@@ -58,6 +101,7 @@ impl Parse for CheckComponents {
         let entries: CheckEntries = content.parse()?;
 
         Ok(Self {
+            check_provider,
             impl_generics,
             trait_name,
             context_type,

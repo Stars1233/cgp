@@ -34,6 +34,7 @@ pub fn test_basic_check_components() {
     #[derive(HasField)]
     pub struct Context {
         pub dummy: (),
+        pub extra_dummy: (),
     }
 
     delegate_components! {
@@ -55,6 +56,35 @@ pub fn test_basic_check_components() {
         CanUseContext for Context {
             FooTypeProviderComponent,
             BarTypeProviderComponent,
+            FooGetterAtComponent: [
+                Index<0>,
+                Index<1>,
+            ],
+            FooGetterAtComponent:
+                Index<3>,
+        }
+
+        CanUseContext2 for Context {
+            BarGetterAtComponent: [
+                (Index<0>, Index<1>),
+                (Index<1>, Index<0>),
+            ],
+            BarGetterAtComponent:
+                (Index<3>, Index<4>),
+            [
+                FooGetterAtComponent,
+                BarGetterAtComponent,
+            ]: [
+                (Index<5>, Index<6>),
+                (Index<7>, Index<8>),
+            ]
+        }
+
+        #[check_providers(
+            UseField<Symbol!("dummy")>,
+            UseField<Symbol!("extra_dummy")>,
+        )]
+        CanUseDummyField for Context {
             FooGetterAtComponent: [
                 Index<0>,
                 Index<1>,
