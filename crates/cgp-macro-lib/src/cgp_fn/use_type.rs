@@ -1,6 +1,6 @@
 use syn::parse::{Parse, ParseStream};
-use syn::token::{As, Brace, Colon, Comma, Gt, Lt};
-use syn::{Ident, braced};
+use syn::token::{As, Brace, Colon, Comma, Eq, Gt, Lt};
+use syn::{Ident, Type, braced};
 
 use crate::parse::SimpleType;
 
@@ -12,12 +12,13 @@ pub struct UseTypeSpec {
 pub struct UseTypeIdent {
     pub type_ident: Ident,
     pub as_alias: Option<Ident>,
+    pub equals: Option<Type>,
 }
 
 impl UseTypeSpec {
     pub fn replace_ident(&self, ident: &Ident) -> Option<Ident> {
         for type_ident in &self.type_idents {
-            if type_ident.replacement_ident() == ident {
+            if type_ident.alias_ident() == ident {
                 let mut new_ident = type_ident.type_ident.clone();
                 new_ident.set_span(ident.span());
                 return Some(new_ident);
@@ -29,7 +30,7 @@ impl UseTypeSpec {
 }
 
 impl UseTypeIdent {
-    pub fn replacement_ident(&self) -> &Ident {
+    pub fn alias_ident(&self) -> &Ident {
         self.as_alias.as_ref().unwrap_or(&self.type_ident)
     }
 }
@@ -64,6 +65,7 @@ impl Parse for UseTypeSpec {
             vec![UseTypeIdent {
                 type_ident: ident,
                 as_alias: None,
+                equals: None,
             }]
         };
 
@@ -85,9 +87,17 @@ impl Parse for UseTypeIdent {
             None
         };
 
+        let equals = if input.peek(Eq) {
+            let _: Eq = input.parse()?;
+            Some(input.parse()?)
+        } else {
+            None
+        };
+
         Ok(Self {
             type_ident,
             as_alias,
+            equals,
         })
     }
 }
