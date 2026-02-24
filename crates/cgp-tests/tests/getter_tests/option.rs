@@ -7,14 +7,13 @@ pub fn test_option_getter() {
         fn foo(&self) -> Option<&String>;
     }
 
-    #[cgp_context]
     #[derive(HasField)]
     pub struct App {
         pub bar: Option<String>,
     }
 
     delegate_components! {
-        AppComponents {
+        App {
             FooGetterComponent: UseField<Symbol!("bar")>,
         }
     }
@@ -33,7 +32,6 @@ pub fn test_option_auto_getter() {
         fn foo(&self) -> Option<&String>;
     }
 
-    #[cgp_context]
     #[derive(HasField)]
     pub struct App {
         pub foo: Option<String>,
