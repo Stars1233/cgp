@@ -54,8 +54,8 @@ pub fn derive_component_with_ast(
     )?;
 
     let mut item_impls = vec![
-        consumer_impl,
         provider_impl,
+        consumer_impl,
         use_context_impl,
         use_context_is_provider_impl,
     ];
