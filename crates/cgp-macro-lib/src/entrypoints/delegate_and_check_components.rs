@@ -9,7 +9,7 @@ use crate::check_components::derive_check_components;
 use crate::delegate_components::impl_delegate_components;
 use crate::parse::{
     CheckComponents, CheckEntries, CheckEntry, DelegateAndCheckSpec, DelegateEntry, DelegateKey,
-    DelegateValue, ImplGenerics,
+    ImplGenerics,
 };
 
 pub fn delegate_and_check_components(body: TokenStream) -> syn::Result<TokenStream> {
@@ -19,13 +19,24 @@ pub fn delegate_and_check_components(body: TokenStream) -> syn::Result<TokenStre
         .entries
         .iter()
         .flat_map(|entry| {
-            entry.keys.iter().map(|component_type| {
+            entry.keys.iter().flat_map(|key| {
+                let component_type = &key.component_type;
                 let span = component_type.span();
 
-                CheckEntry {
-                    component_type: component_type.clone(),
-                    component_params: None,
-                    span,
+                match &key.check_params {
+                    Some(check_params) => check_params
+                        .iter()
+                        .map(|generic| CheckEntry {
+                            component_type: component_type.clone(),
+                            component_params: Some(generic.clone()),
+                            span,
+                        })
+                        .collect::<Vec<_>>(),
+                    None => vec![CheckEntry {
+                        component_type: component_type.clone(),
+                        component_params: None,
+                        span,
+                    }],
                 }
             })
         })
@@ -38,27 +49,25 @@ pub fn delegate_and_check_components(body: TokenStream) -> syn::Result<TokenStre
             let keys = entry
                 .keys
                 .into_iter()
-                .map(|ty| DelegateKey {
-                    ty,
+                .map(|key| DelegateKey {
+                    ty: key.component_type,
                     generics: ImplGenerics::default(),
                 })
                 .collect();
 
-            let value = DelegateValue::Type(entry.value);
-
             DelegateEntry {
                 keys,
-                value,
+                value: entry.value,
                 mode: entry.mode,
             }
         })
         .collect();
 
     let mut out =
-        impl_delegate_components(&spec.provider_type, &spec.impl_generics, &delegate_entries)?;
+        impl_delegate_components(&spec.context_type, &spec.impl_generics, &delegate_entries)?;
 
     let check_spec = CheckComponents {
-        check_provider: None,
+        check_providers: None,
         impl_generics: spec.impl_generics,
         trait_name: spec.trait_name,
         context_type: spec.context_type,

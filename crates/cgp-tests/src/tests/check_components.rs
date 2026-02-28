@@ -36,15 +36,29 @@ pub fn test_basic_check_components() {
         pub extra_dummy: (),
     }
 
-    delegate_components! {
+    delegate_and_check_components! {
         Context {
             [
                 FooTypeProviderComponent,
                 BarTypeProviderComponent,
             ]:
                 UseType<()>,
+
+            #[check_params(
+                (Index<5>, Index<6>),
+                (Index<7>, Index<8>),
+            )]
             [
+                #[check_params(
+                    Index<0>,
+                    Index<1>,
+                )]
                 FooGetterAtComponent,
+
+                #[check_params(
+                    (Index<0>, Index<1>),
+                    (Index<1>, Index<0>),
+                )]
                 BarGetterAtComponent,
             ]:
                 UseField<Symbol!("dummy")>,
@@ -52,7 +66,8 @@ pub fn test_basic_check_components() {
     }
 
     check_components! {
-        CanUseContext for Context {
+        #[check_trait(CanUseContext)]
+        Context {
             FooTypeProviderComponent,
             BarTypeProviderComponent,
             FooGetterAtComponent: [
@@ -63,7 +78,8 @@ pub fn test_basic_check_components() {
                 Index<3>,
         }
 
-        CanUseContext2 for Context {
+        #[check_trait(CanUseContext2)]
+        Context {
             BarGetterAtComponent: [
                 (Index<0>, Index<1>),
                 (Index<1>, Index<0>),
@@ -79,11 +95,12 @@ pub fn test_basic_check_components() {
             ]
         }
 
+        #[check_trait(CanUseDummyField)]
         #[check_providers(
             UseField<Symbol!("dummy")>,
             UseField<Symbol!("extra_dummy")>,
         )]
-        CanUseDummyField for Context {
+        Context {
             FooGetterAtComponent: [
                 Index<0>,
                 Index<1>,
@@ -155,8 +172,7 @@ pub fn test_generic_check_components() {
     }
 
     check_components! {
-        <'a, I>
-        CanUseContext for Context
+        <'a, I> Context
         where
             I: Clone,
         {
