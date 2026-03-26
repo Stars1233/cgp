@@ -1,6 +1,10 @@
 use core::fmt::Debug;
 
-use cgp_component::{DelegateComponent, IsProviderFor, UseContext, WithProvider};
+use cgp_component::{
+    DefaultNamespace, DelegateComponent, IsProviderFor, PathCons, PathNil, RedirectLookup,
+    UseContext, WithProvider,
+};
+use cgp_field::types::*;
 use cgp_macro::cgp_type;
 use cgp_type::{TypeProvider, UseType};
 
@@ -24,6 +28,7 @@ use cgp_type::{TypeProvider, UseType};
    <https://patterns.contextgeneric.dev/error-handling.html>
 */
 #[cgp_type]
+#[use_namespace(cgp.core.error)]
 pub trait HasErrorType {
     type Error: Debug;
 }

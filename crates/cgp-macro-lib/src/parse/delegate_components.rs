@@ -5,12 +5,13 @@ use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::discouraged::Speculative;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::token::{Bracket, Colon, Comma, Gt, Lt, RArrow};
-use syn::{Error, Generics, Ident, Token, Type, braced, bracketed, parse_quote};
+use syn::token::{At, Bracket, Colon, Comma, Gt, Lt, Pound, RArrow};
+use syn::{Attribute, Error, Generics, Ident, Token, Type, braced, bracketed, parse_quote};
 
-use crate::parse::{ImplGenerics, TypeGenerics};
+use crate::parse::{ComponentPaths, ImplGenerics, SimpleType, TypeGenerics};
 
 pub struct DelegateComponents {
+    pub attributes: Vec<Attribute>,
     pub new_struct: bool,
     pub target_type: Type,
     pub target_generics: ImplGenerics,
@@ -72,6 +73,12 @@ impl DelegateValue {
 
 impl Parse for DelegateComponents {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        let attributes = if input.peek(Pound) {
+            input.call(Attribute::parse_outer)?
+        } else {
+            Vec::new()
+        };
+
         let target_generics = if input.peek(Lt) {
             input.parse()?
         } else {
@@ -99,6 +106,7 @@ impl Parse for DelegateComponents {
         };
 
         Ok(Self {
+            attributes,
             new_struct,
             target_type,
             target_generics,
@@ -107,15 +115,29 @@ impl Parse for DelegateComponents {
     }
 }
 
-impl<Type> Parse for DelegateEntry<Type>
-where
-    Type: Parse,
-{
+impl Parse for DelegateEntry<Type> {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let components = if input.peek(Bracket) {
             let components_body;
             bracketed!(components_body in input);
             components_body.parse_terminated(DelegateKey::parse, Token![,])?
+        } else if input.peek(At) {
+            let _: At = input.parse()?;
+
+            let path: ComponentPaths = input.parse()?;
+
+            let mut keys = Punctuated::new();
+
+            for path in path.paths {
+                let key = DelegateKey {
+                    ty: path.path_type,
+                    generics: path.generics,
+                };
+
+                keys.push(key);
+            }
+
+            keys
         } else {
             let component: DelegateKey<Type> = input.parse()?;
             Punctuated::from_iter(iter::once(component))
@@ -133,12 +155,32 @@ where
     }
 }
 
-impl<Type> Parse for DelegateKey<Type>
-where
-    Type: Parse,
-{
+impl Parse for DelegateEntry<SimpleType> {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let component_generics = if input.peek(Lt) {
+        let components = if input.peek(Bracket) {
+            let components_body;
+            bracketed!(components_body in input);
+            components_body.parse_terminated(DelegateKey::parse, Token![,])?
+        } else {
+            let component: DelegateKey<SimpleType> = input.parse()?;
+            Punctuated::from_iter(iter::once(component))
+        };
+
+        let mode = input.parse()?;
+
+        let source = input.parse()?;
+
+        Ok(Self {
+            keys: components,
+            mode,
+            value: source,
+        })
+    }
+}
+
+impl<Type: Parse> Parse for DelegateKey<Type> {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let component_generics: ImplGenerics = if input.peek(Lt) {
             input.parse()?
         } else {
             Default::default()
@@ -167,13 +209,13 @@ impl Parse for DelegateValue {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let fork = input.fork();
 
-        match fork.parse::<DelegateNewValue>() {
-            Ok(value) => {
-                input.advance_to(&fork);
-                Ok(Self::New(value))
-            }
-            _ => Ok(Self::Type(input.parse()?)),
+        if let Ok(value) = fork.parse::<DelegateNewValue>() {
+            input.advance_to(&fork);
+            return Ok(Self::New(value));
         }
+
+        let ty: Type = input.parse()?;
+        Ok(Self::Type(ty))
     }
 }
 

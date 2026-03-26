@@ -2,8 +2,11 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, TokenStreamExt, quote};
 use syn::{ItemImpl, ItemStruct, ItemTrait, parse2};
 
+use crate::derive_component::attributes::parse_component_attributes;
 use crate::derive_component::component_name::derive_component_name_struct;
 use crate::derive_component::consumer_impl::derive_consumer_impl;
+use crate::derive_component::derive_namespace::derive_namespace_impls;
+use crate::derive_component::derive_redirect_lookup::derive_redirect_lookup_impl;
 use crate::derive_component::preprocess_consumer_trait;
 use crate::derive_component::provider_impl::derive_provider_impl;
 use crate::derive_component::provider_trait::derive_provider_trait;
@@ -22,7 +25,9 @@ pub fn derive_component_with_ast(
     let component_name = &spec.component_name;
     let component_params = &spec.component_params;
 
-    preprocess_consumer_trait(&mut consumer_trait)?;
+    let attributes = parse_component_attributes(&mut consumer_trait.attrs)?;
+
+    preprocess_consumer_trait(&mut consumer_trait, &attributes)?;
 
     let component_struct = derive_component_name_struct(component_name, component_params)?;
 
@@ -53,11 +58,21 @@ pub fn derive_component_with_ast(
         &use_context_impl,
     )?;
 
+    let redirect_lookup_impl = derive_redirect_lookup_impl(&consumer_trait, &provider_trait)?;
+    let redirect_lookup_is_provider_impl = derive_is_provider_for(
+        &parse2(quote! {
+            #component_name < #component_params >
+        })?,
+        &redirect_lookup_impl,
+    )?;
+
     let mut item_impls = vec![
         provider_impl,
         consumer_impl,
         use_context_impl,
         use_context_is_provider_impl,
+        redirect_lookup_impl,
+        redirect_lookup_is_provider_impl,
     ];
 
     if !spec.use_delegate_spec.is_empty() {
@@ -75,6 +90,9 @@ pub fn derive_component_with_ast(
             item_impls.push(use_delegate_is_provider_impl);
         }
     }
+
+    let namespace_impls = derive_namespace_impls(&attributes.use_namespace, component_name)?;
+    item_impls.extend(namespace_impls);
 
     let derived = DerivedComponent {
         component_struct,
