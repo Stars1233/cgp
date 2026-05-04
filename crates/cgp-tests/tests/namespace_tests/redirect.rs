@@ -1,7 +1,7 @@
 use cgp::prelude::*;
 
 #[cgp_component(FooProvider)]
-#[use_namespace(bar.baz)]
+#[use_namespace(@bar.baz.FooProviderComponent)]
 pub trait CanDoFoo {
     fn foo();
 }
@@ -20,9 +20,9 @@ pub struct App;
 delegate_components! {
     #[use_namespace]
     App {
-        // @bar.*: TestProvider,
+        // @bar: TestProvider,
 
-        @bar.baz.*: TestProvider,
+        @bar.baz: TestProvider,
 
         // @bar.baz.FooProviderComponent: TestProvider,
     }
