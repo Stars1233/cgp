@@ -5,13 +5,12 @@ use quote::{ToTokens, TokenStreamExt, quote};
 use syn::parse::discouraged::Speculative;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::token::{At, Bracket, Colon, Comma, Gt, Lt, Pound, RArrow, Semi};
-use syn::{Attribute, Error, Generics, Ident, Token, Type, braced, bracketed, parse_quote, parse2};
+use syn::token::{At, Bracket, Colon, Comma, Gt, Lt, RArrow, Semi};
+use syn::{Error, Generics, Ident, Token, Type, braced, bracketed, parse_quote, parse2};
 
 use crate::parse::{ComponentPaths, ImplGenerics, SimpleType, TypeGenerics};
 
 pub struct DelegateComponents {
-    pub attributes: Vec<Attribute>,
     pub new_struct: bool,
     pub target_type: Type,
     pub target_generics: ImplGenerics,
@@ -73,12 +72,6 @@ impl DelegateValue {
 
 impl Parse for DelegateComponents {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let attributes = if input.peek(Pound) {
-            input.call(Attribute::parse_outer)?
-        } else {
-            Vec::new()
-        };
-
         let target_generics = if input.peek(Lt) {
             input.parse()?
         } else {
@@ -110,7 +103,6 @@ impl Parse for DelegateComponents {
         let entries = meta_entries.into_iter().chain(delegate_entries).collect();
 
         Ok(Self {
-            attributes,
             new_struct,
             target_type,
             target_generics,
@@ -153,6 +145,40 @@ pub fn parse_meta_delegate_entries(
 
                 entries.push(entry)
             }
+        } else if keyword == "namespace" {
+            input.advance_to(&fork);
+
+            let ident: Ident = input.parse()?;
+            let _: Semi = input.parse()?;
+
+            let namespace_ident = if ident == "default" {
+                Ident::new("DefaultNamespace", ident.span())
+            } else {
+                ident
+            };
+
+            let delegate_key: Type = parse2(quote! {
+                __Component__
+            })?;
+
+            let generics: ImplGenerics = parse2(quote! {
+                <__Component__: #namespace_ident< #target_type >>
+            })?;
+
+            let delegate_value: Type = parse2(quote! {
+                < __Component__ as #namespace_ident< #target_type >>::Provider
+            })?;
+
+            let entry = DelegateEntry {
+                keys: Punctuated::from_iter([DelegateKey {
+                    ty: delegate_key,
+                    generics,
+                }]),
+                mode: DelegateMode::Provider(Colon(Span::call_site())),
+                value: DelegateValue::Type(delegate_value),
+            };
+
+            entries.push(entry)
         } else {
             break;
         }
