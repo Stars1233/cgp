@@ -8,14 +8,14 @@ pub trait Foo {
 }
 
 cgp_namespace! {
-    MyNamespace {
-        FooProviderComponent:
+    new MyNamespace {
+        FooProviderComponent =>
             @MyApp.MyFooComponent,
     }
 }
 
 #[cgp_component(BarProvider)]
-#[namespace(MyNamespace: @MyApp.MyBarComponent)]
+#[prefix(@MyApp.MyBarComponent in MyNamespace)]
 pub trait Bar {
     fn bar(&self);
 }

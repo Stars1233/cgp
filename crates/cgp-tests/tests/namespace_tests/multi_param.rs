@@ -1,7 +1,7 @@
 use cgp::prelude::*;
 
 #[cgp_component(FooProvider)]
-#[namespace(@app.FooProviderComponent)]
+#[prefix(@app)]
 pub trait Foo<'a, T, U> {
     fn foo(&self, first: &'a T, second: U);
 }
@@ -15,7 +15,7 @@ pub struct AppA;
 
 delegate_components! {
     AppA {
-        open FooProviderComponent;
+        open {FooProviderComponent};
 
         @FooProviderComponent.String.u32:
             DummyFoo,
@@ -39,7 +39,7 @@ pub struct AppB;
 
 delegate_components! {
     AppB {
-        namespace default;
+        namespace DefaultNamespace;
 
         @app.FooProviderComponent.String.u64:
             DummyFoo,

@@ -5,7 +5,7 @@ use cgp::prelude::*;
 pub struct MyComponents;
 
 #[cgp_component(FooProvider)]
-#[namespace(DefaultNamespace: @app.MyComponents.FooProviderComponent)]
+#[prefix(@app.MyComponents.FooProviderComponent in DefaultNamespace)]
 pub trait Foo {
     fn foo(&self);
 }
@@ -14,7 +14,7 @@ pub struct App;
 
 delegate_components! {
     App {
-        namespace default;
+        namespace DefaultNamespace;
 
         @cgp.core.error.ErrorTypeProviderComponent:
             UseType<String>,

@@ -4,11 +4,14 @@ resolver = "3"
 
 members = [
     "crates/cgp",
+    "crates/cgp-base",
+    "crates/cgp-base-types",
     "crates/cgp-core",
     "crates/cgp-extra",
     "crates/cgp-async-macro",
     "crates/cgp-component",
     "crates/cgp-macro",
+    "crates/cgp-macro-core",
     "crates/cgp-macro-lib",
     "crates/cgp-type",
     "crates/cgp-field",
@@ -38,11 +41,14 @@ keywords        = ["cgp"]
 
 [workspace.dependencies]
 cgp                         = { version = "0.7.0", path = "./crates/cgp" }
+cgp-base                    = { version = "0.7.0", path = "./crates/cgp-base" }
+cgp-base-types              = { version = "0.7.0", path = "./crates/cgp-base-types" }
 cgp-core                    = { version = "0.7.0", path = "./crates/cgp-core" }
 cgp-extra                   = { version = "0.7.0", path = "./crates/cgp-extra" }
 cgp-async-macro             = { version = "0.7.0", path = "./crates/cgp-async-macro" }
 cgp-component               = { version = "0.7.0", path = "./crates/cgp-component" }
 cgp-macro                   = { version = "0.7.0", path = "./crates/cgp-macro" }
+cgp-macro-core              = { version = "0.7.0", path = "./crates/cgp-macro-core" }
 cgp-macro-lib               = { version = "0.7.0", path = "./crates/cgp-macro-lib" }
 cgp-type                    = { version = "0.7.0", path = "./crates/cgp-type" }
 cgp-field                   = { version = "0.7.0", path = "./crates/cgp-field" }

@@ -26,6 +26,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "cgp-base"
+version = "0.7.0"
+dependencies = [
+ "cgp-base-types",
+ "cgp-component",
+ "cgp-macro",
+]
+
+[[package]]
+name = "cgp-base-types"
+version = "0.7.0"
+
+[[package]]
 name = "cgp-component"
 version = "0.7.0"
 
@@ -34,6 +47,7 @@ name = "cgp-core"
 version = "0.7.0"
 dependencies = [
  "cgp-async-macro",
+ "cgp-base",
  "cgp-component",
  "cgp-error",
  "cgp-field",
@@ -54,7 +68,7 @@ dependencies = [
 name = "cgp-error"
 version = "0.7.0"
 dependencies = [
- "cgp-component",
+ "cgp-base",
  "cgp-field",
  "cgp-macro",
  "cgp-type",
@@ -127,6 +141,7 @@ dependencies = [
 name = "cgp-field"
 version = "0.7.0"
 dependencies = [
+ "cgp-base-types",
  "cgp-component",
  "cgp-type",
 ]
@@ -154,9 +169,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cgp-macro-core"
+version = "0.7.0"
+dependencies = [
+ "itertools",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "cgp-macro-lib"
 version = "0.7.0"
 dependencies = [
+ "cgp-macro-core",
  "itertools",
  "prettyplease",
  "proc-macro2",
@@ -199,6 +225,7 @@ dependencies = [
 name = "cgp-type"
 version = "0.7.0"
 dependencies = [
+ "cgp-base",
  "cgp-component",
  "cgp-macro",
 ]

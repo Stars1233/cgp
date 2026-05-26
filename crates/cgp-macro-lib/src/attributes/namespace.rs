@@ -1,36 +1,23 @@
-use quote::quote;
+use cgp_macro_core::types::path::UniPath;
+use syn::Ident;
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::token::{At, Colon, Dot};
-use syn::{Ident, Type, parse2};
-
-use crate::parse::PathType;
+use syn::token::In;
 
 pub struct UseNamespaceAttribute {
     pub namespace: Ident,
-    pub path: Type,
+    pub path: UniPath,
 }
 
 impl Parse for UseNamespaceAttribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let namespace = if input.peek2(Colon) {
-            let namespace = input.parse()?;
-            let _: Colon = input.parse()?;
-            namespace
+        let path = input.parse()?;
+
+        let namespace = if input.peek(In) {
+            let _: In = input.parse()?;
+            input.parse()?
         } else {
             Ident::new("DefaultNamespace", input.span())
         };
-
-        let _: At = input.parse()?;
-
-        let paths: Punctuated<PathType, Dot> = Punctuated::parse_separated_nonempty(input)?;
-
-        let raw_path_type = paths.into_iter().rev().fold(
-            quote!(PathNil),
-            |tail, PathType { path_type }| quote!(PathCons<#path_type, #tail>),
-        );
-
-        let path: Type = parse2(raw_path_type)?;
 
         Ok(UseNamespaceAttribute { namespace, path })
     }

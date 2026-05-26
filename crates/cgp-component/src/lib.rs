@@ -5,13 +5,14 @@
    CGP component implementation.
 */
 
-mod namespaces;
-mod traits;
-mod types;
+pub mod macro_prelude;
 
-pub use namespaces::DefaultNamespace;
-pub use traits::{CanUseComponent, DelegateComponent, IsProviderFor};
-pub use types::{
-    ConcatPath, PathCons, PathNil, RedirectLookup, UseContext, UseDefault, UseDelegate, UseFields,
-    WithContext, WithProvider,
+mod namespaces;
+mod providers;
+mod traits;
+
+pub use namespaces::{DefaultImpls1, DefaultImpls2, DefaultNamespace};
+pub use providers::{
+    RedirectLookup, UseContext, UseDefault, UseDelegate, UseFields, WithContext, WithProvider,
 };
+pub use traits::{CanUseComponent, DelegateComponent, IsProviderFor};

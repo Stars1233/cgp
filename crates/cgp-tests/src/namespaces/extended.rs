@@ -1,12 +1,8 @@
-use cgp::core::component::RedirectLookup;
-use cgp::core::error::{ErrorRaiserComponent, ErrorTypeProviderComponent};
-use cgp::prelude::*;
+use cgp::prelude::{DefaultNamespace, cgp_namespace};
 
 cgp_namespace! {
-    ExtendedNamespace: DefaultNamespace {
-        @cgp.core.error.ErrorRaiserComponent:
-            @app.ErrorRaiserComponent,
-        @cgp.core.error.ErrorTypeProviderComponent:
-            @app.ErrorTypeProviderComponent,
+    new ExtendedNamespace: DefaultNamespace {
+        @cgp.core.error =>
+            @app,
     }
 }
