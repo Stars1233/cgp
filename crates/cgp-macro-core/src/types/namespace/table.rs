@@ -2,12 +2,12 @@ use syn::parse::{Parse, ParseStream};
 use syn::token::Colon;
 use syn::{Error, Ident, ItemImpl, ItemStruct, ItemTrait, Type, braced, parse_quote};
 
-use crate::traits::PeekKeyword;
+use crate::traits::ParseOptionalKeyword;
 use crate::types::delegate_component::{
     DelegateEntries, EvalDelegateEntries, EvalDelegateEntry, EvalForEntry,
 };
 use crate::types::generics::ImplGenerics;
-use crate::types::ident_type::IdentType;
+use crate::types::ident::{IdentWithTypeArgs, IdentWithTypeGenerics};
 use crate::types::keyword::Keyword;
 use crate::types::keywords::New;
 use crate::types::namespace::{EvaluatedNamespaceTable, InheritNamespaceStatement};
@@ -15,8 +15,8 @@ use crate::types::namespace::{EvaluatedNamespaceTable, InheritNamespaceStatement
 pub struct NamespaceTable {
     pub impl_generics: ImplGenerics,
     pub new: Option<Keyword<New>>,
-    pub namespace_type: IdentType,
-    pub parent_namespace: Option<(Colon, IdentType)>,
+    pub namespace: IdentWithTypeGenerics,
+    pub parent_namespace: Option<(Colon, IdentWithTypeArgs)>,
     pub entries: DelegateEntries,
 }
 
@@ -24,11 +24,7 @@ impl Parse for NamespaceTable {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let impl_generics = input.parse()?;
 
-        let new = if input.peek_keyword::<New>() {
-            Some(input.parse()?)
-        } else {
-            None
-        };
+        let new = input.parse_optional_keyword()?;
 
         let namespace_type = input.parse()?;
         let parent_namespace = if input.peek(Colon) {
@@ -49,7 +45,7 @@ impl Parse for NamespaceTable {
         Ok(Self {
             impl_generics,
             new,
-            namespace_type,
+            namespace: namespace_type,
             parent_namespace,
             entries,
         })
@@ -58,8 +54,8 @@ impl Parse for NamespaceTable {
 
 impl NamespaceTable {
     pub fn build_namespace_trait(&self) -> syn::Result<Type> {
-        let namespace_ident = &self.namespace_type.ident;
-        let mut namespace_generics = self.namespace_type.generics.clone();
+        let namespace_ident = &self.namespace.ident;
+        let mut namespace_generics = self.namespace.type_generics.clone();
         namespace_generics.params.push(parse_quote!(__Table__));
 
         let namespace_trait: Type = parse_quote!( #namespace_ident #namespace_generics );
@@ -117,7 +113,7 @@ impl NamespaceTable {
             ));
         }
 
-        let namespace_ident = self.namespace_type.ident.clone();
+        let namespace_ident = self.namespace.ident.clone();
 
         let table_type: Type = parse_quote!(__Table__);
 
@@ -131,8 +127,7 @@ impl NamespaceTable {
         };
 
         let for_entry = InheritNamespaceStatement {
-            ident: parent_namespace.ident.clone(),
-            type_generics: parent_namespace.generics.clone(),
+            namespace: parent_namespace.clone(),
             local_table_ident: namespace_struct_ident,
         }
         .eval_for_entry(&table_type)?;

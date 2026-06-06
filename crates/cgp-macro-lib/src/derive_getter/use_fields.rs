@@ -1,15 +1,11 @@
-use alloc::string::ToString;
-
+use cgp_macro_core::types::field::{HasFieldBound, Symbol};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
-use syn::{ItemImpl, ItemTrait, TraitItemType, parse2};
+use syn::{ItemImpl, ItemTrait, TraitItemType, Type, parse_quote, parse2};
 
 use crate::derive_getter::getter_field::GetterField;
-use crate::derive_getter::{
-    ContextArg, ReceiverMode, derive_getter_constraint, derive_getter_method,
-};
+use crate::derive_getter::{ContextArg, ReceiverMode, derive_getter_method};
 use crate::parse::ComponentSpec;
-use crate::symbol::symbol_from_string;
 use crate::type_component::get_bounds_and_replace_self_assoc_type;
 
 pub fn derive_use_fields_impl(
@@ -55,24 +51,31 @@ pub fn derive_use_fields_impl(
             ReceiverMode::Type(ty) => ty.to_token_stream(),
         };
 
-        let field_symbol = symbol_from_string(&field.field_name.to_string())?;
+        let field_name = Symbol::new(field.field_name.clone());
+        let tag_type: Type = parse_quote!(#field_name);
 
         let method = derive_getter_method(
             &ContextArg::Ident(receiver_type.clone()),
             field,
-            Some(quote! { ::< #field_symbol > }),
+            Some(quote! { ::< #field_name > }),
             None,
         );
 
         items.extend(method);
 
-        let constraint = derive_getter_constraint(
-            &field.field_type,
-            &field.receiver_mut,
-            &field.field_mode,
-            quote! { #field_symbol },
-            &field_assoc_type.as_ref().map(|item| item.ident.clone()),
-        )?;
+        let field_type = if let Some(trait_item) = &field_assoc_type {
+            let trait_item_ident = &trait_item.ident;
+            parse_quote!(#trait_item_ident)
+        } else {
+            field.field_type.clone()
+        };
+
+        let constraint = HasFieldBound {
+            field_type,
+            field_mut: field.receiver_mut,
+            field_mode: field.field_mode.clone(),
+            tag_type: tag_type.clone(),
+        };
 
         where_clause
             .predicates

@@ -3,10 +3,10 @@ use quote::ToTokens;
 use syn::parse::{Parse, ParseStream};
 use syn::{ItemImpl, ItemStruct, Type, braced, parse2};
 
-use crate::traits::PeekKeyword;
+use crate::traits::ParseOptionalKeyword;
 use crate::types::delegate_component::{DelegateEntries, ExtractInnerDelegateTables};
 use crate::types::generics::ImplGenerics;
-use crate::types::ident_type::IdentType;
+use crate::types::ident::IdentWithTypeGenerics;
 use crate::types::keyword::Keyword;
 use crate::types::keywords::New;
 use crate::types::provider_struct::ProviderStruct;
@@ -27,11 +27,7 @@ impl Parse for DelegateTable {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let impl_generics = input.parse()?;
 
-        let new = if input.peek_keyword::<New>() {
-            Some(input.parse()?)
-        } else {
-            None
-        };
+        let new = input.parse_optional_keyword()?;
 
         let table_type = input.parse()?;
 
@@ -57,11 +53,11 @@ impl DelegateTable {
         let mut item_structs = Vec::new();
 
         if self.new.is_some() {
-            let struct_type: IdentType = parse2(self.table_type.to_token_stream())?;
+            let struct_type: IdentWithTypeGenerics = parse2(self.table_type.to_token_stream())?;
             item_structs.push(
                 ProviderStruct {
                     ident: struct_type.ident,
-                    generics: struct_type.generics.generics,
+                    generics: struct_type.type_generics.generics,
                 }
                 .to_item_struct()?,
             );

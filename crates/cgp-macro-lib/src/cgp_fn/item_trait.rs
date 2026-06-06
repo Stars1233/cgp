@@ -1,7 +1,6 @@
-use quote::{ToTokens, quote};
-use syn::{Generics, Ident, ItemFn, ItemTrait, TraitItemFn, parse_quote, parse2};
-
-use crate::cgp_fn::{FunctionAttributes, UseTypeSpec, substitute_abstract_types};
+use cgp_macro_core::types::attributes::FunctionAttributes;
+use quote::quote;
+use syn::{Generics, Ident, ItemFn, ItemTrait, TraitItemFn, parse2};
 
 pub fn derive_item_trait(
     trait_ident: &Ident,
@@ -35,31 +34,7 @@ pub fn derive_item_trait(
             .extend(attributes.extend_where.clone());
     }
 
-    if !attributes.use_type.is_empty() {
-        item_trait = expand_use_type_attributes_on_trait(&item_trait, &attributes.use_type)?;
-    }
-
-    Ok(item_trait)
-}
-
-pub fn expand_use_type_attributes_on_trait(
-    item_trait: &ItemTrait,
-    use_type_specs: &[UseTypeSpec],
-) -> syn::Result<ItemTrait> {
-    let mut item_trait: ItemTrait = parse2(substitute_abstract_types(
-        use_type_specs,
-        item_trait.to_token_stream(),
-    ))?;
-
-    for use_type in use_type_specs.iter() {
-        if use_type.context_type != parse_quote! { Self } {
-            continue;
-        }
-
-        item_trait
-            .supertraits
-            .push(parse2(use_type.trait_path.to_token_stream())?);
-    }
+    attributes.use_type.transform_item_trait(&mut item_trait)?;
 
     Ok(item_trait)
 }
