@@ -1,30 +1,24 @@
 use alloc::format;
 use std::collections::BTreeMap;
 
+use cgp_macro_core::types::cgp_component::DeriveDelegateAttributes;
+use cgp_macro_core::types::ident::IdentWithTypeGenerics;
 use proc_macro2::{Span, TokenStream};
 use syn::parse::{End, Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::token::{Bracket, Comma, Gt, Lt, Paren};
-use syn::{Error, Ident, bracketed, parenthesized, parse2};
+use syn::{Error, Ident, parse2};
 
 use crate::parse::Entries;
 
-pub struct ComponentSpec {
-    pub provider_name: Ident,
-    pub context_type: Ident,
-    pub component_name: Ident,
-    pub component_params: Punctuated<Ident, Comma>,
-    pub use_delegate_spec: Vec<DeriveDelegateSpec>,
-}
-
-pub struct ComponentNameSpec {
-    pub component_name: Ident,
-    pub component_params: Punctuated<Ident, Comma>,
+pub struct CgpComponentArgs {
+    pub provider_ident: Ident,
+    pub context_ident: Ident,
+    pub component_name: IdentWithTypeGenerics,
+    pub derive_delegate_attributes: DeriveDelegateAttributes,
 }
 
 static VALID_KEYS: [&str; 4] = ["context", "provider", "name", "derive_delegate"];
 
-impl Parse for ComponentSpec {
+impl Parse for CgpComponentArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek2(End) {
             let provider_name: Ident = input.parse()?;
@@ -34,14 +28,11 @@ impl Parse for ComponentSpec {
             let component_name =
                 Ident::new(&format!("{provider_name}Component"), provider_name.span());
 
-            let component_params = Punctuated::new();
-
             Ok(Self {
-                provider_name,
-                context_type,
-                component_name,
-                component_params,
-                use_delegate_spec: Vec::new(),
+                provider_ident: provider_name,
+                context_ident: context_type,
+                component_name: component_name.into(),
+                derive_delegate_attributes: Default::default(),
             })
         } else {
             let Entries { entries } = input.parse()?;
@@ -50,7 +41,7 @@ impl Parse for ComponentSpec {
     }
 }
 
-impl ComponentSpec {
+impl CgpComponentArgs {
     pub fn validate_entries(entries: &BTreeMap<String, TokenStream>) -> syn::Result<()> {
         for key in entries.keys() {
             if !VALID_KEYS.iter().any(|valid| valid == key) {
@@ -87,118 +78,29 @@ impl ComponentSpec {
             syn::parse2(raw_provider_name.clone())?
         };
 
-        let (component_name, component_params) = {
+        let component_name = {
             let raw_component_name = entries.get("name");
 
             if let Some(raw_component_name) = raw_component_name {
-                let ComponentNameSpec {
-                    component_name,
-                    component_params,
-                } = syn::parse2(raw_component_name.clone())?;
-                (component_name, component_params)
+                parse2(raw_component_name.clone())?
             } else {
-                (
-                    Ident::new(&format!("{provider_name}Component"), provider_name.span()),
-                    Punctuated::default(),
-                )
+                IdentWithTypeGenerics::from(Ident::new(
+                    &format!("{provider_name}Component"),
+                    provider_name.span(),
+                ))
             }
         };
 
-        let use_delegate_spec = match entries.get("derive_delegate") {
-            Some(entry) => {
-                let DeriveDelegateSpecs { specs } = parse2(entry.clone())?;
-                specs
-            }
-            None => Vec::new(),
+        let derive_delegate_attributes = match entries.get("derive_delegate") {
+            Some(entry) => parse2(entry.clone())?,
+            None => Default::default(),
         };
 
-        Ok(ComponentSpec {
+        Ok(CgpComponentArgs {
             component_name,
-            provider_name,
-            context_type,
-            component_params,
-            use_delegate_spec,
+            provider_ident: provider_name,
+            context_ident: context_type,
+            derive_delegate_attributes,
         })
-    }
-}
-
-impl Parse for ComponentNameSpec {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let component_name: Ident = input.parse()?;
-
-        let component_params = if input.peek(Lt) {
-            let _: Lt = input.parse()?;
-
-            let component_params: Punctuated<Ident, Comma> =
-                Punctuated::parse_separated_nonempty(input)?;
-
-            let _: Gt = input.parse()?;
-
-            component_params
-        } else {
-            Punctuated::default()
-        };
-
-        Ok(Self {
-            component_name,
-            component_params,
-        })
-    }
-}
-
-pub struct DeriveDelegateSpec {
-    pub wrapper: Ident,
-    pub params: Punctuated<Ident, Comma>,
-}
-
-impl Parse for DeriveDelegateSpec {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let wrapper: Ident = input.parse()?;
-
-        let _: Lt = input.parse()?;
-
-        let idents = if input.peek(Paren) {
-            let body;
-            parenthesized!(body in input);
-            let idents = Punctuated::parse_terminated(&body)?;
-            if idents.is_empty() {
-                return Err(Error::new(
-                    body.span(),
-                    "expect non-empty tuple list of identifiers in use_delegate_spec",
-                ));
-            }
-
-            idents
-        } else {
-            let ident: Ident = input.parse()?;
-            Punctuated::from_iter([ident])
-        };
-
-        let _: Gt = input.parse()?;
-        Ok(Self {
-            wrapper,
-            params: idents,
-        })
-    }
-}
-
-pub struct DeriveDelegateSpecs {
-    pub specs: Vec<DeriveDelegateSpec>,
-}
-
-impl Parse for DeriveDelegateSpecs {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        if input.peek(Bracket) {
-            let body;
-            bracketed!(body in input);
-
-            let specs = <Punctuated<DeriveDelegateSpec, Comma>>::parse_terminated(&body)?;
-            Ok(Self {
-                specs: Vec::from_iter(specs),
-            })
-        } else {
-            let spec = input.parse()?;
-            Ok(Self { specs: vec![spec] })
-        }
     }
 }

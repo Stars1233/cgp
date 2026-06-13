@@ -1,41 +1,40 @@
 use alloc::format;
-use std::collections::BTreeMap;
 
+use cgp_macro_core::types::cgp_component::{CgpComponentRawArgs, ItemCgpComponent};
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
-use syn::{Ident, ItemTrait, parse_quote, parse2};
+use quote::quote;
+use syn::{Ident, ItemTrait, parse2};
 
-use crate::derive_component::derive_component_with_ast;
-use crate::parse::{ComponentSpec, Entries};
 use crate::type_component::{derive_type_providers, extract_item_type_from_trait};
 
 pub fn cgp_type(attrs: TokenStream, body: TokenStream) -> syn::Result<TokenStream> {
-    let mut entries = if let Ok(provider_ident) = parse2::<Ident>(attrs.clone()) {
-        BTreeMap::from([("provider".to_owned(), provider_ident.to_token_stream())])
-    } else {
-        parse2::<Entries>(attrs)?.entries
-    };
+    let mut raw_args: CgpComponentRawArgs = parse2(attrs.clone())?;
 
-    let consumer_trait: ItemTrait = syn::parse2(body)?;
+    let item_trait: ItemTrait = syn::parse2(body)?;
 
-    let item_type = extract_item_type_from_trait(&consumer_trait)?.clone();
+    let item_type = extract_item_type_from_trait(&item_trait)?.clone();
 
-    entries.entry("provider".into()).or_insert_with(|| {
-        let provider_name = Ident::new(
+    if raw_args.provider_ident.is_none() {
+        raw_args.provider_ident = Some(Ident::new(
             &format!("{}TypeProvider", item_type.ident),
             item_type.ident.span(),
-        );
-        parse_quote!( #provider_name )
-    });
+        ));
+    }
 
-    let spec = ComponentSpec::from_entries(&entries)?;
+    let item_cgp_component = ItemCgpComponent {
+        args: raw_args.try_into()?,
+        item_trait,
+    };
 
-    let component = derive_component_with_ast(&spec, consumer_trait)?;
+    let evaluated = item_cgp_component.preprocess()?.eval()?;
 
-    let type_provider_impls = derive_type_providers(&spec, &component.provider_trait, &item_type)?;
+    let items = evaluated.to_items()?;
+
+    let type_provider_impls =
+        derive_type_providers(&evaluated.args, &evaluated.provider_trait, &item_type)?;
 
     let out = quote! {
-        #component
+        #( #items )*
 
         #(#type_provider_impls)*
     };

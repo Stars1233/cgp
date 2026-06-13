@@ -3,8 +3,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use cgp_macro_core::functions::merge_generics;
+use cgp_macro_core::types::empty_struct::EmptyStruct;
 use cgp_macro_core::types::generics::ImplGenerics;
-use cgp_macro_core::types::provider_struct::ProviderStruct;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::punctuated::Punctuated;
@@ -40,11 +40,10 @@ where
         if let DelegateValue::New(value) = source {
             let struct_ident = &value.struct_ident;
 
-            let item_struct = ProviderStruct {
+            let item_struct = EmptyStruct {
                 ident: struct_ident.clone(),
                 generics: value.struct_generics.clone(),
-            }
-            .to_item_struct()?;
+            };
 
             let (impl_generics, type_generics, _) = value.struct_generics.split_for_impl();
 

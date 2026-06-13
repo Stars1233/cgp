@@ -7,13 +7,11 @@
 
 extern crate alloc;
 
-pub(crate) mod attributes;
 pub(crate) mod blanket_trait;
 pub(crate) mod cgp_fn;
 pub(crate) mod check_components;
 pub(crate) mod delegate_components;
 pub(crate) mod derive_builder;
-pub(crate) mod derive_component;
 pub(crate) mod derive_extractor;
 pub(crate) mod derive_getter;
 pub(crate) mod derive_has_fields;

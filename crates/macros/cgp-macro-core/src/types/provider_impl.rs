@@ -6,6 +6,7 @@ use syn::spanned::Spanned;
 use syn::token::For;
 use syn::{Error, ItemImpl, Path, Type, parse_quote, parse2};
 
+use crate::exports::IsProviderFor;
 use crate::types::cgp_provider::ProviderImplArgs;
 use crate::types::ident::IdentWithTypeArgs;
 use crate::visitors::replace_provider_in_generics;
@@ -14,20 +15,42 @@ pub fn derive_is_provider_for(
     component_type: &Type,
     item_impl: &ItemImpl,
 ) -> syn::Result<ItemImpl> {
-    ItemIsProviderFor {
+    ItemProviderImpl {
         component_type: component_type.clone(),
         item_impl: item_impl.clone(),
     }
-    .lower()
+    .to_is_provider_for_impl()
 }
 
-pub struct ItemIsProviderFor {
+#[derive(Default)]
+pub struct ItemProviderImpls {
+    pub items: Vec<ItemProviderImpl>,
+}
+
+impl ItemProviderImpls {
+    pub fn to_item_impls(&self) -> syn::Result<Vec<ItemImpl>> {
+        let mut item_impls = Vec::new();
+
+        for provider_impl in &self.items {
+            item_impls.extend(provider_impl.to_item_impls()?);
+        }
+
+        Ok(item_impls)
+    }
+}
+
+pub struct ItemProviderImpl {
     pub component_type: Type,
     pub item_impl: ItemImpl,
 }
 
-impl ItemIsProviderFor {
-    pub fn lower(&self) -> syn::Result<ItemImpl> {
+impl ItemProviderImpl {
+    pub fn to_item_impls(&self) -> syn::Result<Vec<ItemImpl>> {
+        let is_provider_impl = self.to_is_provider_for_impl()?;
+        Ok(vec![self.item_impl.clone(), is_provider_impl])
+    }
+
+    pub fn to_is_provider_for_impl(&self) -> syn::Result<ItemImpl> {
         let component_type = &self.component_type;
         let item_impl = &self.item_impl;
 
@@ -44,7 +67,7 @@ impl ItemIsProviderFor {
         let context_type = &impl_args.context_type;
 
         let is_provider_path: Path =
-            parse_quote!( IsProviderFor < #component_type, #context_type, ( #impl_args ) > );
+            parse_quote!( #IsProviderFor < #component_type, #context_type, ( #impl_args ) > );
 
         let mut is_provider_impl = item_impl.clone();
 

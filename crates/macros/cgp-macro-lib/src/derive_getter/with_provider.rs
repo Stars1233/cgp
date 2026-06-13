@@ -1,3 +1,4 @@
+use cgp_macro_core::types::cgp_component::CgpComponentArgs;
 use cgp_macro_core::types::getter::FieldMode;
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, quote};
@@ -5,20 +6,18 @@ use syn::{Generics, Ident, ItemImpl, ItemTrait, TraitItemType, parse_quote, pars
 
 use crate::derive_getter::getter_field::GetterField;
 use crate::derive_getter::{ContextArg, ReceiverMode, derive_getter_method};
-use crate::parse::ComponentSpec;
 use crate::type_component::get_bounds_and_replace_self_assoc_type;
 
 pub fn derive_with_provider_impl(
-    spec: &ComponentSpec,
+    spec: &CgpComponentArgs,
     provider_trait: &ItemTrait,
     field: &GetterField,
     field_assoc_type: &Option<TraitItemType>,
 ) -> syn::Result<ItemImpl> {
     let component_name = &spec.component_name;
-    let component_params = &spec.component_params;
 
-    let context_type = &spec.context_type;
-    let provider_name = &spec.provider_name;
+    let context_type = &spec.context_ident;
+    let provider_name = &spec.provider_ident;
 
     let receiver_type = match &field.receiver_mode {
         ReceiverMode::SelfReceiver => context_type.to_token_stream(),
@@ -34,8 +33,6 @@ pub fn derive_with_provider_impl(
     };
 
     let provider_ident = Ident::new("__Provider__", Span::call_site());
-
-    let component_type = quote! { #component_name < #component_params > };
 
     let mut items = TokenStream::new();
 
@@ -65,16 +62,16 @@ pub fn derive_with_provider_impl(
     let provider_constraint = if field.receiver_mut.is_none() {
         if let FieldMode::Slice = field.field_mode {
             quote! {
-                FieldGetter< #receiver_type, #component_type, Value: AsRef< [ #field_type ] > + 'static >
+                FieldGetter< #receiver_type, #component_name, Value: AsRef< [ #field_type ] > + 'static >
             }
         } else {
             quote! {
-                FieldGetter< #receiver_type, #component_type , Value = #field_type >
+                FieldGetter< #receiver_type, #component_name , Value = #field_type >
             }
         }
     } else {
         quote! {
-            MutFieldGetter< #receiver_type, #component_type, Value = #field_type >
+            MutFieldGetter< #receiver_type, #component_name, Value = #field_type >
         }
     };
 

@@ -7,9 +7,11 @@ export_constructs! {
     Symbol,
     Index,
     PathCons,
+    ConcatPath,
     RedirectLookup,
     DelegateComponent,
     IsProviderFor,
     HasField,
     HasFieldMut,
+    UseContext,
 }
