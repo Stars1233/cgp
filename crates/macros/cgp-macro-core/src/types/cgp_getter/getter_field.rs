@@ -1,7 +1,9 @@
-use cgp_macro_core::types::getter::FieldMode;
 use syn::token::Mut;
 use syn::{Ident, Type};
 
+use crate::types::getter::FieldMode;
+
+#[derive(Clone)]
 pub struct GetterField {
     pub field_name: Ident,
     pub field_type: Type,
@@ -12,6 +14,7 @@ pub struct GetterField {
     pub receiver_mode: ReceiverMode,
 }
 
+#[derive(Clone)]
 pub enum ReceiverMode {
     SelfReceiver,
     Type(Box<Type>),
