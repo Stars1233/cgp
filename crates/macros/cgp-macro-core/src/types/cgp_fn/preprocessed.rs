@@ -1,11 +1,11 @@
-use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::token::Plus;
 use syn::{
     Generics, Ident, Item, ItemFn, ItemImpl, ItemTrait, TraitItemFn, Type, TypeParamBound,
-    Visibility, parse_quote, parse2,
+    Visibility,
 };
 
+use crate::functions::parse_internal;
 use crate::traits::AddTypeParamBounds;
 use crate::types::attributes::FunctionAttributes;
 use crate::types::implicits::ImplicitArgFields;
@@ -44,11 +44,11 @@ impl PreprocessedItemCgpFn {
             semi_token: None,
         };
 
-        let mut item_trait: ItemTrait = parse2(quote! {
+        let mut item_trait: ItemTrait = parse_internal! {
             pub trait #ident {
                 #trait_item_fn
             }
-        })?;
+        };
 
         item_trait.generics = generics.clone();
         item_trait.generics.where_clause = None;
@@ -83,19 +83,19 @@ impl PreprocessedItemCgpFn {
 
         let type_generics = generics.split_for_impl().1;
 
-        let self_type: Type = parse_quote!(Self);
+        let self_type: Type = parse_internal!(Self);
 
-        let mut item_impl: ItemImpl = parse2(quote! {
+        let mut item_impl: ItemImpl = parse_internal! {
             impl #ident #type_generics for __Context__ {
                 #item_fn
             }
-        })?;
+        };
 
         item_impl.generics = generics.clone();
         item_impl
             .generics
             .params
-            .insert(0, parse_quote!(__Context__));
+            .insert(0, parse_internal!(__Context__));
 
         item_impl
             .generics
@@ -107,7 +107,7 @@ impl PreprocessedItemCgpFn {
             bounds.extend(attributes.extend.clone());
 
             for import in attributes.uses.iter() {
-                bounds.push(parse2(quote! { #import })?);
+                bounds.push(parse_internal! { #import });
             }
 
             if !bounds.is_empty() {
@@ -115,9 +115,9 @@ impl PreprocessedItemCgpFn {
                     .generics
                     .make_where_clause()
                     .predicates
-                    .push(parse2(quote! {
+                    .push(parse_internal! {
                         Self: #bounds
-                    })?);
+                    });
             }
         }
 

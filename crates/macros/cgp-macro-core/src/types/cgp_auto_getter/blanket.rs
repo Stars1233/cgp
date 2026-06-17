@@ -1,6 +1,7 @@
-use quote::{ToTokens, quote};
-use syn::{Ident, ImplItem, ItemImpl, ItemTrait, TraitItemType, parse_quote, parse2};
+use quote::ToTokens;
+use syn::{Ident, ImplItem, ItemImpl, ItemTrait, TraitItemType};
 
+use crate::functions::parse_internal;
 use crate::types::cgp_getter::{GetterField, ReceiverMode};
 use crate::types::field::{FieldName, HasFieldBound};
 use crate::types::getter::{ContextArg, derive_getter_method};
@@ -22,32 +23,35 @@ pub fn derive_blanket_impl(
 
     generics
         .params
-        .insert(0, parse2(context_type.to_token_stream())?);
+        .insert(0, parse_internal(context_type.to_token_stream())?);
 
     if let Some(field_assoc_type) = field_assoc_type {
         let field_assoc_type_ident = &field_assoc_type.ident;
 
         generics
             .params
-            .push(parse2(field_assoc_type_ident.to_token_stream())?);
+            .push(parse_internal(field_assoc_type_ident.to_token_stream())?);
 
-        items.push(parse2(quote! {
+        items.push(parse_internal! {
             type #field_assoc_type_ident = #field_assoc_type_ident;
-        })?);
+        });
 
         let field_constraints = get_bounds_and_replace_self_assoc_type(field_assoc_type);
 
-        generics.make_where_clause().predicates.push(parse2(quote! {
-            #field_assoc_type_ident: #field_constraints
-        })?);
+        generics
+            .make_where_clause()
+            .predicates
+            .push(parse_internal! {
+                #field_assoc_type_ident: #field_constraints
+            });
     }
 
     let where_clause = generics.make_where_clause();
 
     if !supertrait_constraints.is_empty() {
-        where_clause.predicates.push(parse2(quote! {
+        where_clause.predicates.push(parse_internal! {
             #context_type: #supertrait_constraints
-        })?);
+        });
     }
 
     for field in fields {
@@ -57,7 +61,7 @@ pub fn derive_blanket_impl(
         };
 
         let field_name = FieldName::from(field.field_name.clone());
-        let tag_type = parse_quote!(#field_name);
+        let tag_type = parse_internal!(#field_name);
 
         let method = derive_getter_method(&context_arg, field, &tag_type, None)?;
 
@@ -65,7 +69,7 @@ pub fn derive_blanket_impl(
 
         let field_type = if let Some(trait_item) = &field_assoc_type {
             let trait_item_ident = &trait_item.ident;
-            parse_quote!(#trait_item_ident)
+            parse_internal!(#trait_item_ident)
         } else {
             field.field_type.clone()
         };
@@ -77,21 +81,21 @@ pub fn derive_blanket_impl(
             tag_type,
         };
 
-        where_clause.predicates.push(parse2(quote! {
+        where_clause.predicates.push(parse_internal! {
             #receiver_type: #constraint
-        })?);
+        });
     }
 
     let (_, type_generics, _) = consumer_trait.generics.split_for_impl();
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
-    let item_impl: ItemImpl = parse2(quote! {
+    let item_impl: ItemImpl = parse_internal! {
         impl #impl_generics #consumer_name #type_generics for #context_type
         #where_clause
         {
             #( #items )*
         }
-    })?;
+    };
 
     Ok(item_impl)
 }

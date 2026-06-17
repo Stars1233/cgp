@@ -2,8 +2,9 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::punctuated::Punctuated;
 use syn::token::Plus;
-use syn::{Generics, ItemImpl, Type, TypeParamBound, parse_quote, parse2};
+use syn::{Generics, ItemImpl, Type, TypeParamBound};
 
+use crate::functions::parse_internal;
 use crate::types::cgp_getter::{GetterField, ItemCgpGetter, ReceiverMode};
 use crate::types::field::HasFieldBound;
 use crate::types::getter::{ContextArg, derive_getter_method};
@@ -37,13 +38,13 @@ impl ItemCgpGetter {
         let provider_name = &provider_trait.ident;
 
         let receiver_type = match &field.receiver_mode {
-            ReceiverMode::SelfReceiver => parse_quote!(#context_type),
+            ReceiverMode::SelfReceiver => parse_internal!(#context_type),
             ReceiverMode::Type(ty) => ty.clone(),
         };
 
         let mut field_constraints: Punctuated<TypeParamBound, Plus> = Punctuated::default();
 
-        let tag_type: Type = parse_quote! { __Tag__ };
+        let tag_type: Type = parse_internal! { __Tag__ };
 
         let mut items = TokenStream::new();
 
@@ -54,7 +55,7 @@ impl ItemCgpGetter {
 
             provider_generics
                 .params
-                .push(parse2(field_assoc_type_ident.to_token_stream())?);
+                .push(parse_internal(field_assoc_type_ident.to_token_stream())?);
 
             items.extend(quote! {
                 type #field_assoc_type_ident = #field_assoc_type_ident;
@@ -65,9 +66,9 @@ impl ItemCgpGetter {
             provider_generics
                 .make_where_clause()
                 .predicates
-                .push(parse2(quote! {
+                .push(parse_internal! {
                     #field_assoc_type_ident: #field_constraints
-                })?);
+                });
         }
 
         items.extend(
@@ -82,7 +83,7 @@ impl ItemCgpGetter {
 
         let field_type = if let Some(trait_item) = &field_assoc_type {
             let trait_item_ident = &trait_item.ident;
-            parse_quote!(#trait_item_ident)
+            parse_internal!(#trait_item_ident)
         } else {
             field.field_type.clone()
         };
@@ -94,29 +95,29 @@ impl ItemCgpGetter {
             tag_type: tag_type.clone(),
         };
 
-        field_constraints.push(parse_quote!(#constraint));
+        field_constraints.push(parse_internal!(#constraint));
 
         let mut where_clause = provider_generics.make_where_clause().clone();
-        where_clause
-            .predicates
-            .push(parse2(quote! { #receiver_type: #field_constraints })?);
+        where_clause.predicates.push(parse_internal! {
+            #receiver_type: #field_constraints
+        });
 
         let (_, type_generics, _) = provider_trait.generics.split_for_impl();
         let (impl_generics, _, _) = provider_generics.split_for_impl();
 
         let impl_generics = {
-            let mut generics: Generics = parse2(impl_generics.to_token_stream())?;
-            generics.params.push(parse_quote!(#tag_type));
+            let mut generics: Generics = parse_internal(impl_generics.to_token_stream())?;
+            generics.params.push(parse_internal!(#tag_type));
             generics
         };
 
-        let use_field_impl: ItemImpl = parse2(quote! {
+        let use_field_impl: ItemImpl = parse_internal! {
             impl #impl_generics #provider_name #type_generics for UseField< #tag_type >
             #where_clause
             {
                 #items
             }
-        })?;
+        };
 
         Ok(use_field_impl)
     }

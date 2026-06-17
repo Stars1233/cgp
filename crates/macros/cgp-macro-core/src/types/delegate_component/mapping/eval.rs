@@ -1,8 +1,7 @@
-use quote::quote;
-use syn::{Generics, ItemImpl, Type, parse_quote, parse2};
+use syn::{Generics, ItemImpl, Type};
 
 use crate::exports::{DelegateComponent, IsProviderFor};
-use crate::functions::merge_generics;
+use crate::functions::{merge_generics, parse_internal};
 
 pub struct EvaluatedDelegateEntry {
     pub table_type: Type,
@@ -33,7 +32,7 @@ impl EvaluatedDelegateEntry {
 
         let (impl_generics, _, where_clause) = generics.split_for_impl();
 
-        parse2(quote! {
+        let item_impl = parse_internal! {
             impl #impl_generics
                 #DelegateComponent< #key >
                 for #table_type
@@ -41,7 +40,9 @@ impl EvaluatedDelegateEntry {
             {
                 type Delegate = #value;
             }
-        })
+        };
+
+        Ok(item_impl)
     }
 
     pub fn build_is_provider_for_impl(&self, outer_generics: &Generics) -> syn::Result<ItemImpl> {
@@ -52,22 +53,27 @@ impl EvaluatedDelegateEntry {
         let key = &self.key;
         let value = &self.value;
 
-        generics.params.push(parse_quote!(__Context__));
-        generics.params.push(parse_quote!(__Params__));
+        generics.params.push(parse_internal!(__Context__));
+        generics.params.push(parse_internal!(__Params__));
 
-        generics.make_where_clause().predicates.push(parse_quote! {
-            #value: #IsProviderFor<#key, __Context__, __Params__>
-        });
+        generics
+            .make_where_clause()
+            .predicates
+            .push(parse_internal! {
+                #value: #IsProviderFor<#key, __Context__, __Params__>
+            });
 
         let (impl_generics, _, where_clause) = generics.split_for_impl();
 
-        parse2(quote! {
+        let item_impl = parse_internal! {
             impl #impl_generics
                 #IsProviderFor< #key, __Context__, __Params__ >
                 for #table_type
             #where_clause
             {}
-        })
+        };
+
+        Ok(item_impl)
     }
 
     pub fn build_namespace_impl(
@@ -82,7 +88,7 @@ impl EvaluatedDelegateEntry {
 
         let (impl_generics, _, where_clause) = generics.split_for_impl();
 
-        parse2(quote! {
+        let item_impl = parse_internal! {
             impl #impl_generics
                 #namespace_trait
                 for #key
@@ -90,6 +96,8 @@ impl EvaluatedDelegateEntry {
             {
                 type Delegate = #value;
             }
-        })
+        };
+
+        Ok(item_impl)
     }
 }

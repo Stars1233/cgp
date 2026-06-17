@@ -1,7 +1,8 @@
 use proc_macro2::Span;
 use quote::{ToTokens, quote};
-use syn::{Generics, Ident, ImplItem, ItemImpl, parse_quote, parse2};
+use syn::{Generics, Ident, ImplItem, ItemImpl};
 
+use crate::functions::parse_internal;
 use crate::types::cgp_getter::{GetterField, ItemCgpGetter, ReceiverMode};
 use crate::types::getter::{ContextArg, FieldMode, derive_getter_method};
 use crate::types::provider_impl::ItemProviderImpl;
@@ -38,14 +39,14 @@ impl ItemCgpGetter {
         let provider_name = &args.provider_ident;
 
         let receiver_type = match &field.receiver_mode {
-            ReceiverMode::SelfReceiver => parse_quote!(#context_type),
+            ReceiverMode::SelfReceiver => parse_internal!(#context_type),
             ReceiverMode::Type(ty) => ty.clone(),
         };
 
         let field_type = match field_assoc_type {
             Some(field_assoc_type) => {
                 let field_assoc_type_ident = &field_assoc_type.ident;
-                parse_quote! { #field_assoc_type_ident }
+                parse_internal! { #field_assoc_type_ident }
             }
             None => field.field_type.clone(),
         };
@@ -61,20 +62,20 @@ impl ItemCgpGetter {
 
             provider_generics
                 .params
-                .push(parse2(field_assoc_type_ident.to_token_stream())?);
+                .push(parse_internal(field_assoc_type_ident.to_token_stream())?);
 
-            items.push(parse2(quote! {
+            items.push(parse_internal! {
                 type #field_assoc_type_ident = #field_assoc_type_ident;
-            })?);
+            });
 
             let field_constraints = get_bounds_and_replace_self_assoc_type(field_assoc_type);
 
             provider_generics
                 .make_where_clause()
                 .predicates
-                .push(parse2(quote! {
+                .push(parse_internal! {
                     #field_assoc_type_ident: #field_constraints
-                })?);
+                });
         }
 
         let provider_constraint = if field.receiver_mut.is_none() {
@@ -103,26 +104,26 @@ impl ItemCgpGetter {
         items.push(method.into());
 
         let mut where_clause = provider_generics.make_where_clause().clone();
-        where_clause
-            .predicates
-            .push(parse2(quote! { #provider_ident : #provider_constraint })?);
+        where_clause.predicates.push(parse_internal! {
+            #provider_ident : #provider_constraint
+        });
 
         let (_, type_generics, _) = provider_trait.generics.split_for_impl();
         let (impl_generics, _, _) = provider_generics.split_for_impl();
 
         let impl_generics = {
-            let mut generics: Generics = parse2(impl_generics.to_token_stream())?;
-            generics.params.push(parse2(quote! { #provider_ident })?);
+            let mut generics: Generics = parse_internal(impl_generics.to_token_stream())?;
+            generics.params.push(parse_internal! { #provider_ident });
             generics
         };
 
-        let out = parse2(quote! {
+        let out = parse_internal! {
             impl #impl_generics #provider_name #type_generics for WithProvider< #provider_ident >
             #where_clause
             {
                 #( #items )*
             }
-        })?;
+        };
 
         Ok(out)
     }
