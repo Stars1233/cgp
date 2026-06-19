@@ -8,6 +8,7 @@ use cgp::extra::dispatch::{
 };
 use cgp::extra::handler::{NoCode, UseInputDelegate};
 use cgp::prelude::*;
+use cgp_macro_test_util::{snapshot_check_components, snapshot_delegate_components};
 
 #[derive(Debug, PartialEq, CgpData)]
 pub enum Shape {
@@ -187,28 +188,99 @@ fn test_dispatch_contains() {
 
 pub struct App;
 
-delegate_components! {
-    App {
-        ComputerComponent: UseInputDelegate<new AreaComputers {
-            [
-                Circle,
-                Rectangle,
-                Triangle,
-            ]:
-                ComputeArea,
-            [
-                Shape,
-                ShapePlus,
-            ]: MatchWithValueHandlers,
-        }>
+snapshot_delegate_components! {
+    delegate_components! {
+        App {
+            ComputerComponent: UseInputDelegate<new AreaComputers {
+                [
+                    Circle,
+                    Rectangle,
+                    Triangle,
+                ]:
+                    ComputeArea,
+                [
+                    Shape,
+                    ShapePlus,
+                ]: MatchWithValueHandlers,
+            }>
+        }
+    }
+
+    expand_app(output) {
+        insta::assert_snapshot!(output, @"
+        pub struct AreaComputers;
+        impl DelegateComponent<ComputerComponent> for App {
+            type Delegate = UseInputDelegate<AreaComputers>;
+        }
+        impl<__Context__, __Params__> IsProviderFor<ComputerComponent, __Context__, __Params__>
+        for App
+        where
+            UseInputDelegate<
+                AreaComputers,
+            >: IsProviderFor<ComputerComponent, __Context__, __Params__>,
+        {}
+        impl DelegateComponent<Circle> for AreaComputers {
+            type Delegate = ComputeArea;
+        }
+        impl<__Context__, __Params__> IsProviderFor<Circle, __Context__, __Params__>
+        for AreaComputers
+        where
+            ComputeArea: IsProviderFor<Circle, __Context__, __Params__>,
+        {}
+        impl DelegateComponent<Rectangle> for AreaComputers {
+            type Delegate = ComputeArea;
+        }
+        impl<__Context__, __Params__> IsProviderFor<Rectangle, __Context__, __Params__>
+        for AreaComputers
+        where
+            ComputeArea: IsProviderFor<Rectangle, __Context__, __Params__>,
+        {}
+        impl DelegateComponent<Triangle> for AreaComputers {
+            type Delegate = ComputeArea;
+        }
+        impl<__Context__, __Params__> IsProviderFor<Triangle, __Context__, __Params__>
+        for AreaComputers
+        where
+            ComputeArea: IsProviderFor<Triangle, __Context__, __Params__>,
+        {}
+        impl DelegateComponent<Shape> for AreaComputers {
+            type Delegate = MatchWithValueHandlers;
+        }
+        impl<__Context__, __Params__> IsProviderFor<Shape, __Context__, __Params__>
+        for AreaComputers
+        where
+            MatchWithValueHandlers: IsProviderFor<Shape, __Context__, __Params__>,
+        {}
+        impl DelegateComponent<ShapePlus> for AreaComputers {
+            type Delegate = MatchWithValueHandlers;
+        }
+        impl<__Context__, __Params__> IsProviderFor<ShapePlus, __Context__, __Params__>
+        for AreaComputers
+        where
+            MatchWithValueHandlers: IsProviderFor<ShapePlus, __Context__, __Params__>,
+        {}
+        ")
     }
 }
 
-check_components! {
-    App {
-        ComputerComponent: [
-            ((), Shape),
-            ((), ShapePlus),
-        ],
+snapshot_check_components! {
+    check_components! {
+        App {
+            ComputerComponent: [
+                ((), Shape),
+                ((), ShapePlus),
+            ],
+        }
+    }
+
+    expand_check_app(output) {
+        insta::assert_snapshot!(output, @"
+        trait __CheckApp<
+            __Component__,
+            __Params__: ?Sized,
+        >: CanUseComponent<__Component__, __Params__> {}
+        impl __CheckApp<ComputerComponent, ((), Shape)> for App {}
+        impl __CheckApp<ComputerComponent, ((), ShapePlus)> for App {}
+        ")
     }
 }

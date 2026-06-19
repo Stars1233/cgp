@@ -7,11 +7,9 @@ repository   = { workspace = true }
 authors      = { workspace = true }
 rust-version = { workspace = true }
 keywords     = { workspace = true }
-description  = """
-    Context-generic programming meta crate
-"""
 
 [dependencies]
-cgp                 = { workspace = true }
-futures             = { version = "0.3.31" }
-const_format        = { version = "0.2.34" }
+cgp                     = { workspace = true }
+cgp-macro-test-util     = { workspace = true }
+insta                   = { version = "1.48.0" }
+futures                 = { version = "0.3.31" }
