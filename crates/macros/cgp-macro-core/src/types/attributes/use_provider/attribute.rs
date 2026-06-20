@@ -4,13 +4,13 @@ use syn::token::{Colon, Plus};
 use syn::{Type, TypeParamBound, WherePredicate};
 
 use crate::parse_internal;
-use crate::types::ident::IdentWithTypeArgs;
+use crate::types::ident::PathWithTypeArgs;
 
 pub struct UseProviderAttribute {
     pub context_type: Type,
     pub provider_type: Type,
     pub colon: Colon,
-    pub provider_trait_bounds: Punctuated<IdentWithTypeArgs, Plus>,
+    pub provider_trait_bounds: Punctuated<PathWithTypeArgs, Plus>,
 }
 
 impl UseProviderAttribute {
@@ -24,7 +24,7 @@ impl UseProviderAttribute {
             let mut bound = bound.clone();
             bound
                 .type_args
-                .make_args()
+                .args
                 .insert(0, parse_internal!(#context_type));
 
             bounds.push(parse_internal!(#bound));

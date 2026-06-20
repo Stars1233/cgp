@@ -8,7 +8,7 @@ use crate::types::delegate_component::{
     DelegateEntries, EvalDelegateEntries, EvalDelegateEntry, EvalForEntry,
 };
 use crate::types::generics::ImplGenerics;
-use crate::types::ident::{IdentWithTypeArgs, IdentWithTypeGenerics};
+use crate::types::ident::{IdentWithTypeGenerics, PathWithTypeArgs};
 use crate::types::keyword::Keyword;
 use crate::types::keywords::New;
 use crate::types::namespace::{EvaluatedNamespaceTable, InheritNamespaceStatement};
@@ -17,7 +17,7 @@ pub struct NamespaceTable {
     pub impl_generics: ImplGenerics,
     pub new: Option<Keyword<New>>,
     pub namespace: IdentWithTypeGenerics,
-    pub parent_namespace: Option<(Colon, IdentWithTypeArgs)>,
+    pub parent_namespace: Option<(Colon, PathWithTypeArgs)>,
     pub entries: DelegateEntries,
 }
 
@@ -109,7 +109,7 @@ impl NamespaceTable {
 
         if self.new.is_none() {
             return Err(Error::new(
-                parent_namespace.ident.span(),
+                parent_namespace.ident().span(),
                 "parent namespace can only be specified with `new` namespaces",
             ));
         }

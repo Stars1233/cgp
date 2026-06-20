@@ -58,7 +58,7 @@ impl DelegateTable {
                 parse_internal(self.table_type.to_token_stream())?;
             item_structs.push(EmptyStruct {
                 ident: struct_type.ident,
-                generics: struct_type.type_generics.generics,
+                generics: struct_type.type_generics.to_generics(),
             });
         }
 

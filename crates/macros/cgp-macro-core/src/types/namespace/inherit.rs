@@ -2,11 +2,11 @@ use syn::{Generics, Ident, Type};
 
 use crate::parse_internal;
 use crate::types::delegate_component::{EvalForEntry, EvaluatedForEntry};
-use crate::types::ident::IdentWithTypeArgs;
+use crate::types::ident::PathWithTypeArgs;
 
 #[derive(Debug, Clone)]
 pub struct InheritNamespaceStatement {
-    pub namespace: IdentWithTypeArgs,
+    pub namespace: PathWithTypeArgs,
     pub local_table_ident: Ident,
 }
 
@@ -17,7 +17,7 @@ impl EvalForEntry for InheritNamespaceStatement {
         let mut namespace_constraint = self.namespace.clone();
         namespace_constraint
             .type_args
-            .make_args()
+            .args
             .push(parse_internal!(#local_table_ident));
 
         let mut generics = Generics::default();

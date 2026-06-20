@@ -4,14 +4,14 @@ use syn::token::In;
 
 use crate::exports::RedirectLookup;
 use crate::functions::parse_internal;
-use crate::types::ident::{IdentWithTypeArgs, IdentWithTypeGenerics};
+use crate::types::ident::{IdentWithTypeGenerics, PathWithTypeArgs};
 use crate::types::path::UniPath;
 
 #[derive(Clone)]
 pub struct PrefixAttribute {
     pub path: UniPath,
     pub _in_token: In,
-    pub namespace: IdentWithTypeArgs,
+    pub namespace: PathWithTypeArgs,
 }
 
 impl PrefixAttribute {
@@ -22,7 +22,7 @@ impl PrefixAttribute {
         let mut namespace = self.namespace.clone();
         namespace
             .type_args
-            .make_args()
+            .args
             .push(parse_internal!(__Components__));
 
         let mut path = self.path.clone();

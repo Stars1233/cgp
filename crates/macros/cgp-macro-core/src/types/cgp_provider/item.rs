@@ -5,7 +5,7 @@ use syn::{Error, Ident, ItemImpl, Type};
 use crate::functions::parse_internal;
 use crate::types::cgp_provider::{LoweredCgpProvider, ProviderArgs};
 use crate::types::empty_struct::EmptyStruct;
-use crate::types::ident::{IdentWithTypeArgs, IdentWithTypeGenerics};
+use crate::types::ident::{IdentWithTypeGenerics, PathWithTypeArgs};
 use crate::types::provider_impl::ItemProviderImpl;
 
 pub struct ItemCgpProvider {
@@ -37,11 +37,11 @@ impl ItemCgpProvider {
             Error::new(item_impl.span(), "expect provider trait name to be present")
         })?;
 
-        let provider_trait: IdentWithTypeArgs =
+        let provider_trait: PathWithTypeArgs =
             parse_internal(provider_trait_path.to_token_stream())?;
 
         let component_ident = Ident::new(
-            &format!("{}Component", provider_trait.ident),
+            &format!("{}Component", provider_trait.ident()),
             provider_trait.span(),
         );
 
@@ -61,7 +61,7 @@ impl ItemCgpProvider {
 
         let provider_struct = EmptyStruct {
             ident: provider_type.ident.clone(),
-            generics: provider_type.type_generics.generics.clone(),
+            generics: provider_type.type_generics.to_generics(),
         };
 
         Ok(Some(provider_struct))

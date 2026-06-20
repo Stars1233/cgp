@@ -3,12 +3,20 @@ use quote::ToTokens;
 use syn::parse::{Parse, ParseStream};
 use syn::{Ident, Type, parse_quote};
 
-use crate::types::generics::GenericArguments;
+use crate::traits::ToType;
+use crate::types::ident::TypeArgs;
 
+/// An identifier followed by an optional type-expression argument list, e.g.
+/// `Foo`, `Foo<A, B>`, `Foo<(A, B), C>`, or `Foo<Bar<A>, C>`.
+///
+/// For the path-headed counterpart (`path::to::Foo<A, B>`), see
+/// [`PathWithTypeArgs`].
+///
+/// [`PathWithTypeArgs`]: crate::types::ident::PathWithTypeArgs
 #[derive(Debug, Clone)]
 pub struct IdentWithTypeArgs {
     pub ident: Ident,
-    pub type_args: GenericArguments,
+    pub type_args: TypeArgs,
 }
 
 impl Parse for IdentWithTypeArgs {
@@ -31,13 +39,19 @@ impl From<Ident> for IdentWithTypeArgs {
     fn from(ident: Ident) -> Self {
         Self {
             ident,
-            type_args: GenericArguments::default(),
+            type_args: TypeArgs::default(),
         }
+    }
+}
+
+impl ToType for IdentWithTypeArgs {
+    fn to_type(&self) -> Type {
+        parse_quote!(#self)
     }
 }
 
 impl From<IdentWithTypeArgs> for Type {
     fn from(value: IdentWithTypeArgs) -> Self {
-        parse_quote!(#value)
+        value.to_type()
     }
 }
