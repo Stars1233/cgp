@@ -17,7 +17,7 @@ pub struct CheckComponentsTable {
     pub impl_generics: ImplGenerics,
     pub trait_name: Ident,
     pub context_type: Type,
-    pub where_clause: WhereClause,
+    pub where_clause: Option<WhereClause>,
     pub check_entries: CheckEntries,
 }
 
@@ -141,21 +141,13 @@ impl Parse for CheckComponentsTable {
         let trait_name = if let Some(check_trait_name) = m_check_trait_name {
             check_trait_name
         } else {
-            let context_type: IdentWithTypeArgs = parse2(context_type.to_token_stream())?;
-
-            Ident::new(
-                &format!("__Check{}", context_type.ident),
-                context_type.span(),
-            )
+            derive_check_trait_ident(&context_type, "__Check")?
         };
 
         let where_clause = if input.peek(Where) {
-            input.parse()?
+            Some(input.parse()?)
         } else {
-            WhereClause {
-                where_token: Where(Span::call_site()),
-                predicates: Punctuated::default(),
-            }
+            None
         };
 
         let content;
@@ -172,6 +164,18 @@ impl Parse for CheckComponentsTable {
             check_entries: entries,
         })
     }
+}
+
+/// Derive a check trait identifier from a context type by prepending `prefix`
+/// to the context type's leading identifier, e.g. `__CheckPerson` or
+/// `__CanUsePerson` for the context type `Person`.
+pub fn derive_check_trait_ident(context_type: &Type, prefix: &str) -> syn::Result<Ident> {
+    let context_type: IdentWithTypeArgs = parse2(context_type.to_token_stream())?;
+
+    Ok(Ident::new(
+        &format!("{prefix}{}", context_type.ident),
+        context_type.span(),
+    ))
 }
 
 fn override_span<T>(span: &Span, body: &T) -> syn::Result<T>
