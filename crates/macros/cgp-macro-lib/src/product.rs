@@ -1,45 +1,21 @@
+use cgp_macro_core::types::product::{ProductExpr, ProductType};
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::token::Comma;
-use syn::{Expr, Type};
+use quote::ToTokens;
+use syn::parse2;
 
-pub struct ParsePunctuated<T>(pub Punctuated<T, Comma>);
+#[allow(non_snake_case)]
+pub fn Product(body: TokenStream) -> syn::Result<TokenStream> {
+    let product_type: ProductType = parse2(body)?;
 
-impl<T: Parse> Parse for ParsePunctuated<T> {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let types = Punctuated::parse_terminated(input)?;
-        Ok(ParsePunctuated(types))
-    }
+    let evaluated = product_type.eval()?;
+
+    Ok(evaluated.to_token_stream())
 }
 
-pub fn make_product_type(input: TokenStream) -> TokenStream {
-    let types: ParsePunctuated<Type> = syn::parse2(input).unwrap();
+pub fn product(body: TokenStream) -> syn::Result<TokenStream> {
+    let product_expr: ProductExpr = parse2(body)?;
 
-    types.0.iter().rfold(quote! { ε }, |res, item| {
-        quote! {
-            π< #item , #res >
-        }
-    })
-}
+    let evaluated = product_expr.eval()?;
 
-pub fn make_sum_type(input: TokenStream) -> TokenStream {
-    let types: ParsePunctuated<Type> = syn::parse2(input).unwrap();
-
-    types.0.iter().rfold(quote! { θ }, |res, item| {
-        quote! {
-            σ< #item , #res >
-        }
-    })
-}
-
-pub fn make_product_expr(input: TokenStream) -> TokenStream {
-    let types: ParsePunctuated<Expr> = syn::parse2(input).unwrap();
-
-    types.0.iter().rfold(quote! { ε }, |res, item| {
-        quote! {
-            π( #item , #res )
-        }
-    })
+    Ok(evaluated.to_token_stream())
 }

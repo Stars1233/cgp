@@ -1,4 +1,3 @@
-use cgp::prelude::*;
 use cgp_macro_test_util::{snapshot_cgp_auto_getter, snapshot_cgp_getter, snapshot_cgp_type};
 
 snapshot_cgp_type! {
@@ -86,8 +85,8 @@ snapshot_cgp_type! {
         impl<__Provider__, Scalar, __Context__> ScalarTypeProvider<__Context__>
         for WithProvider<__Provider__>
         where
-            __Provider__: TypeProvider<__Context__, ScalarTypeProviderComponent, Type = Scalar>,
             Scalar: Copy,
+            __Provider__: TypeProvider<__Context__, ScalarTypeProviderComponent, Type = Scalar>,
         {
             type Scalar = Scalar;
         }
@@ -98,8 +97,8 @@ snapshot_cgp_type! {
         > IsProviderFor<ScalarTypeProviderComponent, __Context__, ()>
         for WithProvider<__Provider__>
         where
-            __Provider__: TypeProvider<__Context__, ScalarTypeProviderComponent, Type = Scalar>,
             Scalar: Copy,
+            __Provider__: TypeProvider<__Context__, ScalarTypeProviderComponent, Type = Scalar>,
         {}
         ")
     }

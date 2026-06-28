@@ -140,22 +140,15 @@ mod generic_const {
                 >>::Delegate: IsProviderFor<UnitTypeProviderComponent, __Context__, ()>
                     + UnitTypeProvider<__Context__>,
             {}
-            impl<Unit, __Context__> UnitTypeProvider<__Context__> for UseType<Unit>
-            where
-                Unit:,
-            {
+            impl<Unit, __Context__> UnitTypeProvider<__Context__> for UseType<Unit> {
                 type Unit = Unit;
             }
             impl<Unit, __Context__> IsProviderFor<UnitTypeProviderComponent, __Context__, ()>
-            for UseType<Unit>
-            where
-                Unit:,
-            {}
+            for UseType<Unit> {}
             impl<__Provider__, Unit, __Context__> UnitTypeProvider<__Context__>
             for WithProvider<__Provider__>
             where
                 __Provider__: TypeProvider<__Context__, UnitTypeProviderComponent, Type = Unit>,
-                Unit:,
             {
                 type Unit = Unit;
             }
@@ -167,7 +160,6 @@ mod generic_const {
             for WithProvider<__Provider__>
             where
                 __Provider__: TypeProvider<__Context__, UnitTypeProviderComponent, Type = Unit>,
-                Unit:,
             {}
             ")
         }

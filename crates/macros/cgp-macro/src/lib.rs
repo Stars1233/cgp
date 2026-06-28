@@ -751,17 +751,11 @@ pub fn blanket_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ```rust,ignore
     type Hello = Char<'h', Char<'e', Char<'l', Char<'l', Char<'o', Nil>>>>>;
     ```
-
-    which would be shown with the shortened representation as:
-
-    ```rust,ignore
-    type Hello = ζ<'h', ζ<'e', ζ<'l', ζ<'l', ζ<'o', ε>>>>>;
-    ```
 */
 #[proc_macro]
 #[allow(non_snake_case)]
 pub fn Symbol(body: TokenStream) -> TokenStream {
-    cgp_macro_lib::make_symbol(body.into())
+    cgp_macro_lib::Symbol(body.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -787,17 +781,20 @@ pub fn Symbol(body: TokenStream) -> TokenStream {
     ```rust,ignore
     type MyTypes = Cons<u32, Cons<String, Cons<bool, Nil>>>;
     ```
-
-    which would be shown with the shortened representation as:
-
-    ```rust,ignore
-    type MyTypes = π<u32, π<String, π<bool, ε>>>;
-    ```
 */
 #[proc_macro]
 #[allow(non_snake_case)]
 pub fn Product(body: TokenStream) -> TokenStream {
-    cgp_macro_lib::make_product_type(body.into()).into()
+    cgp_macro_lib::Product(body.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+#[proc_macro]
+pub fn product(body: TokenStream) -> TokenStream {
+    cgp_macro_lib::product(body.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 /**
@@ -822,30 +819,21 @@ pub fn Product(body: TokenStream) -> TokenStream {
    ```rust,ignore
    type MyUnion = Either<u32, Either<String, Either<bool, Void>>>;
    ```
-
-   which would be shown with the shortened representation as:
-
-   ```rust,ignore
-   type MyUnion = σ<u32, σ<String, σ<bool, θ>>>;
-   ```
 */
 #[proc_macro]
 #[allow(non_snake_case)]
 pub fn Sum(body: TokenStream) -> TokenStream {
-    cgp_macro_lib::make_sum_type(body.into()).into()
-}
-
-#[proc_macro]
-#[allow(non_snake_case)]
-pub fn Path(body: TokenStream) -> TokenStream {
-    cgp_macro_lib::path(body.into())
+    cgp_macro_lib::Sum(body.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
 
 #[proc_macro]
-pub fn product(body: TokenStream) -> TokenStream {
-    cgp_macro_lib::make_product_expr(body.into()).into()
+#[allow(non_snake_case)]
+pub fn Path(body: TokenStream) -> TokenStream {
+    cgp_macro_lib::Path(body.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 #[proc_macro_derive(HasField)]

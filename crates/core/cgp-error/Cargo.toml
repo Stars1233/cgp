@@ -9,7 +9,7 @@ rust-version = { workspace = true }
 keywords     = { workspace = true }
 
 [dependencies]
-cgp                 = { version = "0.7.0", path = "../../main/cgp-base", package = "cgp-base" }
+cgp                 = { version = "0.7.0", path = "../../main/cgp-base-extra", package = "cgp-base-extra" }
 cgp-macro           = { workspace = true }
 cgp-type            = { workspace = true }
 cgp-field           = { workspace = true }

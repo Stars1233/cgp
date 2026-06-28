@@ -73,22 +73,15 @@ snapshot_cgp_type! {
             >>::Delegate: IsProviderFor<FooTypeProviderComponent, __Context__, ()>
                 + FooTypeProvider<__Context__>,
         {}
-        impl<Foo, __Context__> FooTypeProvider<__Context__> for UseType<Foo>
-        where
-            Foo:,
-        {
+        impl<Foo, __Context__> FooTypeProvider<__Context__> for UseType<Foo> {
             type Foo = Foo;
         }
         impl<Foo, __Context__> IsProviderFor<FooTypeProviderComponent, __Context__, ()>
-        for UseType<Foo>
-        where
-            Foo:,
-        {}
+        for UseType<Foo> {}
         impl<__Provider__, Foo, __Context__> FooTypeProvider<__Context__>
         for WithProvider<__Provider__>
         where
             __Provider__: TypeProvider<__Context__, FooTypeProviderComponent, Type = Foo>,
-            Foo:,
         {
             type Foo = Foo;
         }
@@ -99,7 +92,6 @@ snapshot_cgp_type! {
         > IsProviderFor<FooTypeProviderComponent, __Context__, ()> for WithProvider<__Provider__>
         where
             __Provider__: TypeProvider<__Context__, FooTypeProviderComponent, Type = Foo>,
-            Foo:,
         {}
         ")
     }
@@ -175,22 +167,15 @@ snapshot_cgp_type! {
             >>::Delegate: IsProviderFor<BarTypeProviderComponent, __Context__, ()>
                 + BarTypeProvider<__Context__>,
         {}
-        impl<Bar, __Context__> BarTypeProvider<__Context__> for UseType<Bar>
-        where
-            Bar:,
-        {
+        impl<Bar, __Context__> BarTypeProvider<__Context__> for UseType<Bar> {
             type Bar = Bar;
         }
         impl<Bar, __Context__> IsProviderFor<BarTypeProviderComponent, __Context__, ()>
-        for UseType<Bar>
-        where
-            Bar:,
-        {}
+        for UseType<Bar> {}
         impl<__Provider__, Bar, __Context__> BarTypeProvider<__Context__>
         for WithProvider<__Provider__>
         where
             __Provider__: TypeProvider<__Context__, BarTypeProviderComponent, Type = Bar>,
-            Bar:,
         {
             type Bar = Bar;
         }
@@ -201,7 +186,6 @@ snapshot_cgp_type! {
         > IsProviderFor<BarTypeProviderComponent, __Context__, ()> for WithProvider<__Provider__>
         where
             __Provider__: TypeProvider<__Context__, BarTypeProviderComponent, Type = Bar>,
-            Bar:,
         {}
         ")
     }
