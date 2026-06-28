@@ -34,6 +34,7 @@ impl Parse for ComponentPaths {
     }
 }
 
+#[derive(Clone)]
 pub struct ComponentPath<Path> {
     pub path_type: Path,
     pub generics: ImplGenerics,
@@ -41,12 +42,31 @@ pub struct ComponentPath<Path> {
 
 pub fn path_head_to_prefix(path_head: &PathHead) -> Vec<ComponentPath<TokenStream>> {
     match path_head {
-        PathHead::Type(generics, path_type, rest) => {
+        PathHead::Type(path_element, rest) => {
             let rest_types = path_head_to_prefix(rest);
 
-            prepend_path(path_type.to_token_stream(), generics.clone(), rest_types)
+            prepend_path(
+                path_element.element.to_token_stream(),
+                path_element.generics.clone(),
+                rest_types,
+            )
         }
-        PathHead::Group(paths) => paths.iter().flat_map(path_head_to_prefix).collect(),
+        PathHead::Group(path_elements, rest) => {
+            let rest_types = path_head_to_prefix(rest);
+            let mut out = Vec::new();
+
+            for path_element in path_elements {
+                let paths = prepend_path(
+                    path_element.element.to_token_stream(),
+                    path_element.generics.clone(),
+                    rest_types.clone(),
+                );
+                out.extend(paths);
+            }
+
+            out
+        }
+        PathHead::Nested(paths) => paths.iter().flat_map(path_head_to_prefix).collect(),
         PathHead::End => {
             vec![ComponentPath {
                 path_type: quote! { __Wildcard__ },

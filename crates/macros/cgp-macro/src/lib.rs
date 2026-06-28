@@ -25,10 +25,6 @@ use proc_macro::TokenStream;
     - `context` - the identifier used for the generic context type. If not provided,
       the default identifier `Context` would be used.
 
-    - `derive_delegate` - a list of generic dispatcher wrappers to derive the
-      `UseDelegate` pattern on, with the matching generic parameters specified in
-      the generic argument of the wrapper. Refer to `UseDelegate` for more details.
-
     ## Extension Macros
 
     There are two other macros that extends `#[cgp_component]` that can be used for
@@ -970,6 +966,14 @@ pub fn Product(body: TokenStream) -> TokenStream {
 #[allow(non_snake_case)]
 pub fn Sum(body: TokenStream) -> TokenStream {
     cgp_macro_lib::make_sum_type(body.into()).into()
+}
+
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn Path(body: TokenStream) -> TokenStream {
+    cgp_macro_lib::path(body.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 #[proc_macro]

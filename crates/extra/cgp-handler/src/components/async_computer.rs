@@ -6,13 +6,10 @@ use cgp::prelude::*;
 use crate::UseInputDelegate;
 
 #[async_trait]
-#[cgp_component {
-    provider: AsyncComputer,
-    derive_delegate: [
-        UseDelegate<Code>,
-        UseInputDelegate<Input>,
-    ],
-}]
+#[cgp_component(AsyncComputer)]
+#[prefix(@cgp.extra.handler in DefaultNamespace)]
+#[derive_delegate(UseDelegate<Code>)]
+#[derive_delegate(UseInputDelegate<Input>)]
 pub trait CanComputeAsync<Code, Input> {
     type Output;
 
@@ -20,13 +17,10 @@ pub trait CanComputeAsync<Code, Input> {
 }
 
 #[async_trait]
-#[cgp_component {
-    provider: AsyncComputerRef,
-    derive_delegate: [
-        UseDelegate<Code>,
-        UseInputDelegate<Input>,
-    ],
-}]
+#[cgp_component(AsyncComputerRef)]
+#[prefix(@cgp.extra.handler in DefaultNamespace)]
+#[derive_delegate(UseDelegate<Code>)]
+#[derive_delegate(UseInputDelegate<Input>)]
 pub trait CanComputeAsyncRef<Code, Input> {
     type Output;
 

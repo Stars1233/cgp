@@ -5,13 +5,10 @@ use cgp::prelude::*;
 
 use crate::UseInputDelegate;
 
-#[cgp_component {
-    provider: TryComputer,
-    derive_delegate: [
-        UseDelegate<Code>,
-        UseInputDelegate<Input>,
-    ],
-}]
+#[cgp_component(TryComputer)]
+#[prefix(@cgp.extra.handler in DefaultNamespace)]
+#[derive_delegate(UseDelegate<Code>)]
+#[derive_delegate(UseInputDelegate<Input>)]
 pub trait CanTryCompute<Code, Input>: HasErrorType {
     type Output;
 
@@ -22,13 +19,10 @@ pub trait CanTryCompute<Code, Input>: HasErrorType {
     ) -> Result<Self::Output, Self::Error>;
 }
 
-#[cgp_component {
-    provider: TryComputerRef,
-    derive_delegate: [
-        UseDelegate<Code>,
-        UseInputDelegate<Input>,
-    ],
-}]
+#[cgp_component(TryComputerRef)]
+#[prefix(@cgp.extra.handler in DefaultNamespace)]
+#[derive_delegate(UseDelegate<Code>)]
+#[derive_delegate(UseInputDelegate<Input>)]
 pub trait CanTryComputeRef<Code, Input>: HasErrorType {
     type Output;
 
