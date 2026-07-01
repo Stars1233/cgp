@@ -205,9 +205,11 @@ where
 ```
 
 The provider name goes in the attribute argument; a leading `new` keyword also declares the
-`struct GreetHello;`. You may omit `for Context` entirely (as above) and the macro inserts the
-context parameter; if you write it explicitly it must be declared, as `impl<Context> Greeter for
-Context`. Remember that `self`/`Self` here mean the context. `#[cgp_impl]` desugars to:
+`struct GreetHello;`. **Prefer the unqualified `impl Greeter` form and let the macro insert the
+context parameter** — omitting `for Context` is what makes a provider read like an ordinary trait
+impl. Write the explicit `impl<Context> Greeter for Context` only when you must bound or name the
+context readably (for example a lifetime or HRTB the sugar cannot express); it must then be declared
+in the impl generics. Remember that `self`/`Self` here mean the context. `#[cgp_impl]` desugars to:
 
 ```rust
 #[cgp_new_provider]
@@ -228,6 +230,29 @@ auto-generates the matching `IsProviderFor` impl from the same `where` clause.
 `PhantomData` field over its parameters, e.g. `pub struct Multiply<Field>(PhantomData<Field>);`).
 The attribute argument can override the component name, which otherwise defaults to the provider
 trait's name plus `Component`.
+
+**Strongly prefer the modern, vanilla-looking idioms when you write CGP, and reach for the explicit
+forms only when a construct genuinely cannot express the case.** In order: write providers with
+`#[cgp_impl]` (not `#[cgp_provider]`/`#[cgp_new_provider]`) and omit `for Context` so the header
+reads `impl Greeter`; declare capability dependencies with [`#[uses(...)]`](functions-and-getters.md)
+and inner-provider dependencies with [`#[use_provider(...)]`](higher-order-providers.md) instead of
+hand-written `Self:`/`Provider: …<Self>` `where` bounds; read context fields with
+[`#[implicit]`](functions-and-getters.md) arguments rather than defining a getter trait with
+`#[cgp_auto_getter]` (reserve a getter trait for a *published* accessor several providers share, and
+`#[cgp_getter]` for the advanced case of choosing the source field per context); add non-type capability supertraits with
+[`#[extend(...)]`](functions-and-getters.md) rather than native `: Supertrait` syntax, which reads as
+OOP-style inheritance rather than a capability import; and import abstract types (using them as
+supertraits) with [`#[use_type]`](abstract-types.md), writing the bare alias (`Scalar`, `Error`) rather than declaring
+the trait as a hand-written supertrait or `where Self: HasScalarType` bound and then qualifying every
+use as `Self::Scalar`. This applies even to `#[cgp_component]` trait definitions: prefer
+`#[use_type(HasErrorType::Error)]` over `: HasErrorType` + `Self::Error`, since the attribute adds the
+supertrait for you and lets the signatures read in the bare form. When defining a new dispatchable
+component, skip `#[derive_delegate]`/`UseDelegate` and dispatch through the `open` statement or a
+namespace instead. The explicit forms remain correct
+and are what you *read* in generated code and desugaring; the exceptions that still need them are
+narrow — an associated-type-equality bound (`Iterator<Item = u8>`) that `#[uses]` cannot spell, a
+lifetime or HRTB that forces a named context, or a **local** associated type such as `Self::Output`,
+which always stays qualified because it is the trait's own type, not an imported abstract one.
 
 The provider's `where` clause is where **impl-side dependencies** live: `GreetHello` requires
 `Self: HasName`, but `CanGreet` exposes no such bound, so a caller bounding on `CanGreet` never sees
@@ -417,14 +442,23 @@ fn scaled_rectangle_area(&self, #[implicit] scale_factor: f64) -> f64 {
 ```
 
 `#[extend(Trait)]` adds *supertrait* bounds to the generated trait — the only way to add supertraits
-in `#[cgp_fn]` (whose `where` clauses are impl-side dependencies), and usable on `#[cgp_component]`
-too. `#[extend_where(Bound)]` adds `where` clauses to the generated trait definition (`#[cgp_fn]`
-only).
+in `#[cgp_fn]` (whose `where` clauses are impl-side dependencies), and the **preferred** way to add a
+*non-type capability* supertrait on `#[cgp_component]` too: `#[extend(HasName)]` reads as importing a
+capability, whereas the native `pub trait CanGreet: HasName` syntax reads as OOP-style inheritance
+from a parent class, which a CGP supertrait is not. (When the supertrait is an abstract-type component
+whose associated type the signatures name, prefer `#[use_type]` instead — it adds the supertrait *and*
+rewrites the type, and is the recommended form for abstract-type components.) `#[extend_where(Bound)]`
+adds `where` clauses to the generated trait definition (`#[cgp_fn]` only).
 
 ## Getters: `#[cgp_auto_getter]`, `#[cgp_getter]`, `UseField`
 
+Getter traits are for *publishing* a context field as a shared capability, not for a provider
+reading a value for its own use — for that, prefer an `#[implicit]` argument (above), which needs no
+separate trait. Reach for a getter trait only when the accessor is genuinely shared: depended on by
+several providers through `#[uses(HasName)]`, or carrying an associated type inferred from the field.
+
 `#[cgp_auto_getter]` generates a blanket getter impl over `HasField`, with the field name taken from
-the method name:
+the method name, and is the getter form to prefer:
 
 ```rust
 #[cgp_auto_getter]
@@ -437,7 +471,9 @@ pub trait HasName {
 A single-getter trait may instead declare a local associated type used as the return type, inferred
 from the field — `trait HasName { type Name; fn name(&self) -> &Self::Name; }`.
 
-`#[cgp_getter]` is like `#[cgp_component]` but also provides a `UseField<Tag>` blanket impl, so the
+`#[cgp_getter]` is an **advanced** tool, reserved for when a context needs full control over which
+field a getter reads from — most getters should use `#[cgp_auto_getter]` or an implicit argument
+instead. It is like `#[cgp_component]` but also provides a `UseField<Tag>` blanket impl, so the
 getter's source field can be chosen by *wiring* rather than fixed to the method name. The
 `UseField<Tag>` provider implements a getter by reading the field named `Tag`, which may differ from
 the method name:
@@ -535,23 +571,24 @@ can wire the same shape to different providers.
 
 CGP makes the error type abstract so generic code can fail without naming a concrete error.
 `HasErrorType` (an abstract-type component, `type Error: Debug`) gives a context one shared
-`Self::Error`; `CanRaiseError<SourceError>` constructs it from a concrete source error
-(`Context::raise_error(source)`); `CanWrapError<Detail>` attaches detail. Both supertrait
+error type; `CanRaiseError<SourceError>` constructs it from a concrete source error
+(`Context::raise_error(source)`); `CanWrapError<Detail>` attaches detail. Both build on
 `HasErrorType` and are associated-function (no `self`) components that dispatch per source/detail
-type:
+type. An error-aware trait imports that error type with `#[use_type(HasErrorType::Error)]`, so it
+names the error as the bare `Error` instead of writing `: HasErrorType` and `Self::Error` by hand:
 
 ```rust
 #[cgp_component(Loader)]
-pub trait CanLoad: HasErrorType {
-    fn load(&self, path: &str) -> Result<String, Self::Error>;
+#[use_type(HasErrorType::Error)]
+pub trait CanLoad {
+    fn load(&self, path: &str) -> Result<String, Error>;
 }
 
 #[cgp_impl(new LoadOrFail)]
-impl Loader
-where
-    Self: CanRaiseError<String>,
-{
-    fn load(&self, path: &str) -> Result<String, Self::Error> {
+#[uses(CanRaiseError<String>)]
+#[use_type(HasErrorType::Error)]
+impl Loader {
+    fn load(&self, path: &str) -> Result<String, Error> {
         if path.is_empty() {
             return Err(Self::raise_error("empty path".to_owned()));
         }
