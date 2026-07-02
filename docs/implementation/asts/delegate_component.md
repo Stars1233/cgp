@@ -20,7 +20,7 @@ The `delegate_component` stack is the set of AST types that `delegate_components
 
 `DelegateStatement` is the leading statement form, an enum over three variants that all lower through `eval_entries` into the same flat entry list:
 
-- **`OpenDelegateStatement`** (`open { A, B };`) — opens each listed component for per-value wiring. For each component it emits an entry whose key is the component and whose value is `RedirectLookup<TableType, PathCons<Component, Nil>>`, rooting a redirect at the component name in the context's own table. The `@Component.Key` mappings that follow store providers under the extended path.
+- **`OpenDelegateStatement`** (`open { A, B };`, or `open A;` for a single component) — opens each listed component for per-value wiring. Its parser peeks for a brace: a `{ … }` list parses one or more comma-separated components, while the braceless form parses exactly one component type, so opening several at once still requires the braces. For each component it emits an entry whose key is the component and whose value is `RedirectLookup<TableType, PathCons<Component, Nil>>`, rooting a redirect at the component name in the context's own table. The `@Component.Key` mappings that follow store providers under the extended path.
 - **`NamespaceDelegateStatement`** (`namespace SomeNamespace;`) — forwards every lookup through a namespace trait. It lowers via the shared "for-entry" path to a blanket `DelegateComponent<__Key__>` impl bounded on `__Key__: SomeNamespace<TableType, Delegate = __Value__>`, so any key the namespace defines is inherited.
 - **`ForDelegateStatement`** (`for <Key, Provider> in SomeTable where … { … }`) — a loop that pulls mappings out of another lookup table. Each inner mapping produces a for-entry whose namespace-trait bound is reconstructed with the table type and a `Delegate = value` binding appended to the namespace path's arguments.
 
@@ -56,7 +56,7 @@ Only Normal and Direct mappings can carry a nested inner table (their values are
 
 ## Tests
 
-- The stack is exercised end-to-end by the expansion snapshots and behavioral tests indexed in the [entrypoint document](../entrypoints/delegate_components.md); there are no `cgp-macro-tests` failure cases for the delegate family.
+- The stack is exercised end-to-end by the expansion snapshots and behavioral tests indexed in the [entrypoint document](../entrypoints/delegate_components.md), and its attribute rejection — including the recursion through mapping values into inner tables — is pinned by the failure cases in [parser_rejections/delegate_components.rs](../../../crates/tests/cgp-macro-tests/tests/parser_rejections/delegate_components.rs).
 
 ## Source
 

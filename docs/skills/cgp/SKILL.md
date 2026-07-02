@@ -245,7 +245,7 @@ OOP-style inheritance rather than a capability import; and import abstract types
 supertraits) with [`#[use_type]`](abstract-types.md), writing the bare alias (`Scalar`, `Error`) rather than declaring
 the trait as a hand-written supertrait or `where Self: HasScalarType` bound and then qualifying every
 use as `Self::Scalar`. This applies even to `#[cgp_component]` trait definitions: prefer
-`#[use_type(HasErrorType::Error)]` over `: HasErrorType` + `Self::Error`, since the attribute adds the
+`#[use_type(HasErrorType.Error)]` over `: HasErrorType` + `Self::Error`, since the attribute adds the
 supertrait for you and lets the signatures read in the bare form. When defining a new dispatchable
 component, skip `#[derive_delegate]`/`UseDelegate` and dispatch through the `open` statement or a
 namespace instead. The explicit forms remain correct
@@ -316,7 +316,7 @@ shape like this:
 ```rust
 delegate_components! {
     MyApp {
-        open { AreaCalculatorComponent };
+        open AreaCalculatorComponent;
 
         @AreaCalculatorComponent.Rectangle: RectangleArea,
         @AreaCalculatorComponent.Circle: CircleArea,
@@ -324,8 +324,10 @@ delegate_components! {
 }
 ```
 
-The `open { … };` header opens one or more components for per-value wiring and **must lead** the
-block (it comes before any plain `Component: Provider` mappings, or the macro fails to parse). Each
+The `open … ;` header opens one or more components for per-value wiring and **must lead** the
+block (it comes before any plain `Component: Provider` mappings, or the macro fails to parse). The
+braces are optional when opening a single component (`open AreaCalculatorComponent;`); use the
+braced list `open { A, B };` to open several at once. Each
 `@Component.Key: Provider` entry then assigns a provider for one value of the dispatch parameter; a
 brace group on the final segment shares one provider across several values
 (`@AreaCalculatorComponent.{u32, u64, bool}: SomeProvider`), and a key may carry generics
@@ -519,7 +521,7 @@ delegate_components! {
 
 The direct impl is just as valid and shows that abstract types are ordinary associated-type traits.
 
-The `#[use_type(HasScalarType::Scalar)]` attribute is the recommended way to *use* an abstract type
+The `#[use_type(HasScalarType.Scalar)]` attribute is the recommended way to *use* an abstract type
 inside `#[cgp_fn]`/`#[cgp_impl]`/`#[cgp_component]`: it rewrites bare `Scalar` to the fully-qualified
 `<Self as HasScalarType>::Scalar` everywhere and adds the supertrait/where bound, removing `Self::`
 boilerplate and ambiguity. CGP's built-in abstract-type component is `HasType` (provider
@@ -574,19 +576,19 @@ CGP makes the error type abstract so generic code can fail without naming a conc
 error type; `CanRaiseError<SourceError>` constructs it from a concrete source error
 (`Context::raise_error(source)`); `CanWrapError<Detail>` attaches detail. Both build on
 `HasErrorType` and are associated-function (no `self`) components that dispatch per source/detail
-type. An error-aware trait imports that error type with `#[use_type(HasErrorType::Error)]`, so it
+type. An error-aware trait imports that error type with `#[use_type(HasErrorType.Error)]`, so it
 names the error as the bare `Error` instead of writing `: HasErrorType` and `Self::Error` by hand:
 
 ```rust
 #[cgp_component(Loader)]
-#[use_type(HasErrorType::Error)]
+#[use_type(HasErrorType.Error)]
 pub trait CanLoad {
     fn load(&self, path: &str) -> Result<String, Error>;
 }
 
 #[cgp_impl(new LoadOrFail)]
 #[uses(CanRaiseError<String>)]
-#[use_type(HasErrorType::Error)]
+#[use_type(HasErrorType.Error)]
 impl Loader {
     fn load(&self, path: &str) -> Result<String, Error> {
         if path.is_empty() {
@@ -605,7 +607,7 @@ A context wires its error type and the raise/wrap behavior. The backend provider
 ```rust
 delegate_components! {
     App {
-        open { ErrorRaiserComponent };
+        open ErrorRaiserComponent;
 
         ErrorTypeProviderComponent: UseType<String>,
         @ErrorRaiserComponent.String: RaiseFrom,

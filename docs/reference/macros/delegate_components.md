@@ -40,12 +40,12 @@ delegate_components! {
 
 A leading `<...>` generic list on the target makes the whole table generic, so the same wiring can apply across a family of context types — for example `delegate_components! { <T> MyContext<T> { ... } }` wires every `MyContext<T>` at once.
 
-The recommended way to dispatch a component on its generic parameter is the `open` statement, which folds the per-value entries directly into the context's own table. A leading `open { AreaCalculatorComponent };` header opens one or more components for per-key wiring, after which a `@`-path entry such as `@AreaCalculatorComponent.Rectangle: RectangleArea` assigns a provider to a single value of that component's dispatch parameter:
+The recommended way to dispatch a component on its generic parameter is the `open` statement, which folds the per-value entries directly into the context's own table. A leading `open AreaCalculatorComponent;` header opens one or more components for per-key wiring, after which a `@`-path entry such as `@AreaCalculatorComponent.Rectangle: RectangleArea` assigns a provider to a single value of that component's dispatch parameter. The braces are optional when opening a single component, so `open AreaCalculatorComponent;` is equivalent to `open { AreaCalculatorComponent };`; the braced list is only required to open several components at once:
 
 ```rust
 delegate_components! {
     MyApp {
-        open {AreaCalculatorComponent};
+        open AreaCalculatorComponent;
 
         @AreaCalculatorComponent.Rectangle: RectangleArea,
         @AreaCalculatorComponent.Circle: CircleArea,
@@ -73,7 +73,7 @@ This wires `MyApp` to calculate the area of a `Rectangle` through `RectangleArea
 
 Beyond plain `Key: Value` entries and `open`, the table body also accepts the other namespace-oriented statement forms used to opt a context into a [`#[cgp_namespace]`](cgp_namespace.md): a leading `namespace SomeNamespace;` header that forwards every lookup through that namespace, `@`-path keys such as `@app.ErrorRaiserComponent` that target a route rather than a bare component name, and `for <T, Provider> in SomeTable { ... }` loops that pull entries out of another lookup table. These forms are described under [`#[cgp_namespace]`](cgp_namespace.md), where they are most often written.
 
-The macro accepts no attributes on the table or its keys and rejects any it finds. Attribute-driven variants such as `#[check_params(...)]` and `#[skip_check]` belong to [`delegate_and_check_components!`](delegate_and_check_components.md), not here.
+The macro accepts no attributes on the table or on any of its keys — including keys nested inside a `UseDelegate<new Inner { … }>` value — and rejects any it finds with a spanned "unsupported attribute" error rather than discarding it. Attribute-driven variants such as `#[check_params(...)]` and `#[skip_check]` belong to [`delegate_and_check_components!`](delegate_and_check_components.md), not here.
 
 ## Syntax Grammar
 
@@ -88,7 +88,7 @@ TableBody     -> Statement* ( Mapping ( `,` Mapping )* `,`? )?
 
 Statement     -> OpenStmt | NamespaceStmt | ForStmt
 
-OpenStmt      -> `open` `{` Type ( `,` Type )* `,`? `}` `;`    // NamespaceStmt, ForStmt — see #[cgp_namespace]
+OpenStmt      -> `open` ( `{` Type ( `,` Type )* `,`? `}` | Type ) `;`    // NamespaceStmt, ForStmt — see #[cgp_namespace]
 
 Mapping       -> Key `:`  ProviderValue
                | Key `->` ProviderValue
@@ -105,7 +105,7 @@ ProviderValue -> Type
 Path          -> `@` PathSegment ( `.` PathSegment )*    // see Path!
 ```
 
-A leading `Generics` list (a Rust `< … >`) makes the whole table generic over the target; the `new` keyword additionally emits the target struct. Each `Mapping` chooses one of three operators: `` `:` `` maps a key directly to the named provider — the common form — while `` `->` `` delegates to the value's own entry for that key and `` `=>` `` redirects the lookup along an `@`-`Path`; the operators other than `:` are used mainly by the namespace machinery and detailed under [`#[cgp_namespace]`](cgp_namespace.md). A `Key` may be a single type, a bracketed list expanding to one entry per name, or an `@`-`PathKey`. The nested-table `ProviderValue` form wires the key to a `UseDelegate`-style wrapper while defining the inner table in place. `Mapping`, `Key`, and `ProviderValue` are the shared productions reused by [`delegate_and_check_components!`](delegate_and_check_components.md) and [`#[cgp_namespace]`](cgp_namespace.md). An `OpenStmt` opens each listed component for per-value wiring directly in the context's table, after which `@Component.Key` path keys populate it; the `NamespaceStmt` and `ForStmt` statement forms and the `Path` segment rules are defined under [`#[cgp_namespace]`](cgp_namespace.md) and [`Path!`](path.md). The macro accepts no attributes on the table or its entries and rejects any it finds.
+A leading `Generics` list (a Rust `< … >`) makes the whole table generic over the target; the `new` keyword additionally emits the target struct. Each `Mapping` chooses one of three operators: `` `:` `` maps a key directly to the named provider — the common form — while `` `->` `` delegates to the value's own entry for that key and `` `=>` `` redirects the lookup along an `@`-`Path`; the operators other than `:` are used mainly by the namespace machinery and detailed under [`#[cgp_namespace]`](cgp_namespace.md). A `Key` may be a single type, a bracketed list expanding to one entry per name, or an `@`-`PathKey`. The nested-table `ProviderValue` form wires the key to a `UseDelegate`-style wrapper while defining the inner table in place. `Mapping`, `Key`, and `ProviderValue` are the shared productions reused by [`delegate_and_check_components!`](delegate_and_check_components.md) and [`#[cgp_namespace]`](cgp_namespace.md). An `OpenStmt` opens each listed component for per-value wiring directly in the context's table, after which `@Component.Key` path keys populate it; its brace-delimited list may be written without braces when it opens exactly one component (`open Component;`), while opening several at once requires the braces. The `NamespaceStmt` and `ForStmt` statement forms and the `Path` segment rules are defined under [`#[cgp_namespace]`](cgp_namespace.md) and [`Path!`](path.md). The macro accepts no attributes on the table or its entries and rejects any it finds.
 
 ## Expansion
 
@@ -178,7 +178,7 @@ The `open` statement expands each listed component to a redirect entry, with the
 ```rust
 delegate_components! {
     MyApp {
-        open {AreaCalculatorComponent};
+        open AreaCalculatorComponent;
 
         @AreaCalculatorComponent.Rectangle: RectangleArea,
         @AreaCalculatorComponent.Circle: CircleArea,
@@ -186,7 +186,7 @@ delegate_components! {
 }
 ```
 
-the `open { AreaCalculatorComponent };` header wires `AreaCalculatorComponent` to a `RedirectLookup` rooted at the component name inside `MyApp`'s own table:
+the `open AreaCalculatorComponent;` header wires `AreaCalculatorComponent` to a `RedirectLookup` rooted at the component name inside `MyApp`'s own table:
 
 ```rust
 impl DelegateComponent<AreaCalculatorComponent> for MyApp {

@@ -1,9 +1,9 @@
-//! `#[cgp_fn]` combining explicit and `#[implicit]` arguments, generic method
-//! parameters, `#[async_trait]`, and `#[use_type]` importing abstract types with
-//! renaming.
+//! `#[cgp_fn]` combining explicit and `#[implicit]` arguments, generic type
+//! parameters lifted onto the trait, `#[async_trait]`, and `#[use_type]`
+//! importing abstract types with renaming.
 //!
 //! The implicit args here have abstract-type values (`FooX`, `Bar`) imported via
-//! `#[use_type(<HasFooType<X>>::{Foo as FooX}, …)]`, showing how implicit reads
+//! `#[use_type(HasFooType<X>.{Foo as FooX}, …)]`, showing how implicit reads
 //! and abstract-type imports combine in one function.
 //!
 //! See docs/reference/macros/cgp_fn.md and docs/reference/attributes/use_type.md.
@@ -27,7 +27,7 @@ snapshot_cgp_fn! {
     #[cgp_fn]
     #[allow(unused)]
     #[async_trait]
-    #[use_type(<HasFooType<X>>::{Foo as FooX}, <HasFooType<Y>>::{Foo as FooY}, HasBarType::{Bar, Baz})]
+    #[use_type(HasFooType<X>.{Foo as FooX}, HasFooType<Y>.{Foo as FooY}, HasBarType.{Bar, Baz})]
     pub async fn do_foo_bar<X, Y>(
         &self,
         x: X,
