@@ -58,11 +58,61 @@ An **array key** `[A, B]: Provider` expands to one impl pair per bracketed key, 
 
 An **`@`-path key** carries a leading `__Wildcard__` generic and lowers the path to a prefix type ending in that wildcard, which is how a dispatch parameter slots in at lookup time. A **brace group on a path segment** (`@Component.{u32, u64}: P`) expands to one key per element, and the `namespace`/`for` statement forms lower through a shared "for-entry" path that builds a `Namespace<…, Delegate = …>` bound rather than a direct `DelegateComponent` impl; these are the namespace machinery and are detailed in the AST document.
 
+## Error spans
+
+Each generated impl is re-spanned onto the entry that produced it, so a compiler error about that impl points at the entry the user wrote rather than at the whole `delegate_components!` block. The impls are built with `parse_internal!`, which quasi-quotes their tokens; those tokens carry the macro invocation's `call_site` span, and the only tokens with a narrower span are the interpolated key, value, and target type. A coherence conflict (`E0119`) between two entries mapping the same key is reported on the impl header — its `impl` keyword and trait reference — which is exactly the part that starts at `call_site`, so without correction the error underlines the entire block, and two overlapping entries produce two block-wide carets that say nothing about which entry to fix.
+
+`build_delegate_component_impl` and `build_is_provider_for_impl` fix this through `respan_impl`, which mirrors the `override_span` technique that `check_components!` uses to aim an unsatisfied-bound error at the checked component. It re-spans every token of the finished impl onto the entry's diagnostic span, then restores the impl's original generics. The re-span moves the header — and therefore the `E0119` caret — onto what the user wrote, while restoring the generics keeps a diagnostic about a per-entry generic pointing where the user declared it: an unconstrained parameter's `E0207`, for instance, still lands on the `<T>` rather than being dragged onto the key. The shared helper lives in [functions/override_span.rs](../../../crates/macros/cgp-macro-core/src/functions/override_span.rs).
+
+The diagnostic span is carried explicitly rather than read back from the generated key, because a key type may be *synthesized* and so no longer carry a useful span. This follows the [`EvaluatedCheckEntry.span`](check_components.md) pattern: `EvaluatedDelegateKey`, `EvaluatedDelegateEntry`, and the `namespace`/`for` intermediary `EvaluatedForEntry` each hold a `span` field, populated at eval time from the token the user actually wrote and threaded through to `respan_impl`. Every entry form sources its span this way, so none falls back to `call_site`: a plain `Key: Provider`, `Key -> Value`, or `Key => @path` mapping (and each element of an array key) takes the key type's own span; the `open` header takes the opened component's span; a `namespace`/`for` statement takes the namespace name or the loop mapping's key; and a nested `UseDelegate<new Inner { .. }>` table lowers through the same per-entry path, so its inner keys are spanned too.
+
+An `@`-path key needs more than its lowered type, since that type is a `PathCons<..>` nest whose first token is a `call_site`-spanned `PathCons` (the same problem `Symbol` avoids by keeping a parse-time span so its synthesized `Chars`/`Symbol` tokens do not fall back to `call_site`). So an `@`-path sources its span from the path segments — the join of the segment spans, which widens to the whole path where the toolchain supports `Span::join` and otherwise keeps the leaf segment (the component of a namespace path, or the dispatch key of an `@Component.key` entry), so the caret lands on the segment that discriminates entries sharing a prefix.
+
+Because the `.stderr` fixtures record the exact line and column of each caret, they double as regression tests for these spans: reverting the re-span snaps the carets back to the block and the snapshots change (see [Tests](#tests)).
+
+## Failure modes
+
+Some `delegate_components!` inputs are accepted by the macro but then fail to compile, and for `delegate_components!` these failures are all ones the macro **intentionally defers to the Rust compiler**: it lowers each block independently, with no whole-program view, so a mistake that only a global check could catch is left to `rustc`. Each is intended behavior rather than a bug — the diagnostic below is the one a user should expect — and each is pinned by a fixture under [acceptable/delegate_components/](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components) in `cgp-compile-fail-tests`.
+
+A **duplicate key** — the same component mapped twice, whether by two entries in one block, two separate blocks, or an `open` header colliding with an explicit mapping — emits two conflicting `DelegateComponent` impls and fails with the coherence error `E0119`, exactly as two hand-written impls would. The error points at each offending entry rather than the whole block, per [Error spans](#error-spans):
+
+```rust
+delegate_components! { Person { GreeterComponent: GreetHello } }
+delegate_components! { Person { GreeterComponent: GreetGoodbye } } // E0119: conflicting impl
+```
+
+An **overlapping generic entry** is the same failure reached through generics: a `<T> Wrapper<T>` table and a specific `Wrapper<u64>` table wiring the same component overlap at `Wrapper<u64>`, and since stable Rust has no specialization the two impls conflict with `E0119`.
+
+```rust
+delegate_components! { <T> Wrapper<T> { GreeterComponent: GreetHello } }
+delegate_components! { Wrapper<u64>  { GreeterComponent: GreetHello } } // E0119 at Wrapper<u64>
+```
+
+A **missing impl-side dependency** follows from wiring being lazy: `delegate_components!` records the entry without checking the provider's transitive requirements, so wiring a provider whose `where` clause the context cannot satisfy is accepted, and the unmet bound surfaces only when the consumer trait is used (an `E0599` naming the missing `Greeter<Person>` / `IsProviderFor` bound). A `check_components!` site moves the same error earlier, to the wiring.
+
+```rust
+// GreetHello requires `Self: HasName`, but `Person` has no `name` field.
+delegate_components! { Person { GreeterComponent: GreetHello } } // accepted — wiring is lazy
+person.greet(); // E0599: `Person: Greeter<Person>` is not satisfied
+```
+
+An **unconstrained per-entry generic** is accepted when its parameter appears only in the provider value and not in the key. A per-entry generic list is well-formed only when it reaches the key (as in `<T2> BazKey<T1, T2>`, where `DelegateComponent<BazKey<..>>` binds it); writing one that never does is ill-formed input, and the macro lowers it faithfully rather than second-guessing it, so the compiler rejects the free parameter with `E0207` just as it would a hand-written impl with an unused parameter:
+
+```rust
+delegate_components! {
+    Person {
+        <T> GreeterComponent: GreetWith<T>, // T never reaches the key
+    }
+}
+// lowers to an impl with an unconstrained parameter:
+impl<T> DelegateComponent<GreeterComponent> for Person {
+    type Delegate = GreetWith<T>; // E0207: `T` is not constrained
+}
+```
+
 ## Known issues
 
 The macro's parser is permissive about the body shape and surfaces most mistakes as generic `syn` parse errors rather than tailored diagnostics — for example, an `open` header written after a plain mapping fails to parse because statements must lead the block, but the error (`expected `:``) points at the unexpected token rather than explaining the ordering rule.
-
-A duplicate key — the same component mapped twice, whether by two plain entries or by an `open` header colliding with an explicit mapping — is not caught by the macro; it emits two conflicting `DelegateComponent` impls and surfaces as a coherence error (`E0119`) at compile time, the same as two hand-written impls would.
 
 ## Snapshots
 
@@ -101,6 +151,16 @@ The behavioral tests confirm the generated wiring resolves and compiles:
 The failure cases in `cgp-macro-tests` pin the attribute rejection:
 
 - [parser_rejections/delegate_components.rs](../../../crates/tests/cgp-macro-tests/tests/parser_rejections/delegate_components.rs) asserts the macro rejects an attribute on the table, on a key, and on a key nested inside a `UseDelegate<new Inner { … }>` value (the last confirms the validator recurses through mapping values rather than dropping the attribute), and that a braceless `open` header listing more than one component is rejected (the braceless form opens exactly one).
+
+The compile-fail fixtures in `cgp-compile-fail-tests` pin the expansions that fail to compile. All are **acceptable** failures — deferred to the compiler by design — and are described under [Failure modes](#failure-modes) above:
+
+- [acceptable/delegate_components/duplicate_key.rs](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components/duplicate_key.rs) — two blocks mapping the same key expand to conflicting `DelegateComponent` impls (`E0119`).
+- [acceptable/delegate_components/duplicate_key_same_block.rs](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components/duplicate_key_same_block.rs) — the same conflict from two entries in one block; its `.stderr` pins the per-entry [error spans](#error-spans), each caret landing on its own `GreeterComponent` key rather than the whole block.
+- [acceptable/delegate_components/duplicate_path_key.rs](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components/duplicate_path_key.rs) — the `@`-path analogue: two identical `@cgp.core.error.ErrorTypeProviderComponent` entries under a `namespace` header conflict, and its `.stderr` pins the [error span](#error-spans) landing on the duplicated path leaf rather than the whole block, even though the key lowers to a synthesized `PathCons<..>` type.
+- [acceptable/delegate_components/duplicate_open_key.rs](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components/duplicate_open_key.rs) — an `open` header colliding with an explicit mapping for the same component; its `.stderr` pins the [error span](#error-spans) of the `open`-header entry, whose span comes from the opened component (a source distinct from the plain key path).
+- [acceptable/delegate_components/overlapping_generic.rs](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components/overlapping_generic.rs) — a generic `<T> Wrapper<T>` entry overlaps a specific `Wrapper<u64>` entry at the same key (`E0119`).
+- [acceptable/delegate_components/missing_dependency.rs](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components/missing_dependency.rs) — a lazily-wired provider whose `Self: HasName` dependency the context does not satisfy; the unmet bound surfaces at the call site (`E0599`).
+- [acceptable/delegate_components/unconstrained_generic.rs](../../../crates/tests/cgp-compile-fail-tests/tests/acceptable/delegate_components/unconstrained_generic.rs) — a per-entry generic that appears only in the value (`<T> GreeterComponent: GreetWith<T>`) lowers to an impl with an unconstrained `T` (`E0207`), which the compiler rejects as it would a hand-written impl.
 
 ## Source
 

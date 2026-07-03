@@ -1,15 +1,30 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to LLM agents when working with code in this repository.
 
-## Understanding CGP first
+## Orient before any task
 
-This repository **is** the implementation of Context-Generic Programming (CGP). Before reading or
-writing any CGP code here, **always invoke the `/cgp` skill** to load the fundamentals (consumer vs.
-provider traits, `#[cgp_component]`/`#[cgp_impl]`/`#[cgp_fn]`, `delegate_components!`, `HasField`,
-`UseDelegate`, check traits, etc.). Re-invoke it whenever you navigate into unfamiliar parts of the
-codebase — the macros and core traits here are the ground truth that the skill describes, so the two
-should always be read together.
+This repository **is** the implementation of Context-Generic Programming (CGP), and its behavior is
+recorded as much in the knowledge base under [docs/](docs) as in the code. Before starting any task
+here — reading, writing, reviewing, debugging, or answering a question — load the CGP mental model
+and the documentation that covers what you are about to touch. The following steps are standing
+requirements: they apply to every task regardless of how small it looks, not just to the macro
+review workflow below.
+
+- **Always invoke the `/cgp` skill** to load the fundamentals (consumer vs. provider traits,
+  `#[cgp_component]`/`#[cgp_impl]`/`#[cgp_fn]`, `delegate_components!`, `HasField`, `UseDelegate`,
+  check traits, and so on). Re-invoke it whenever you move into an unfamiliar construct — the macros
+  and core traits here are the ground truth the skill describes, so read the two together.
+- **Always read [docs/README.md](docs/README.md)** to orient in the knowledge base, then follow it
+  into the README of whichever section covers your task.
+- **Read [docs/reference/README.md](docs/reference/README.md) and the relevant reference documents
+  whenever the task requires understanding a CGP construct** — what it means, what syntax it accepts,
+  and what code it expands to.
+- **Read [docs/implementation/README.md](docs/implementation/README.md) and the relevant
+  implementation documents whenever the task involves reading or modifying the CGP source code** —
+  they map each macro to its `cgp-macro-core`/`cgp-macro-lib` internals, corner cases, and tests.
+- **Load the `/dual-reader-prose` skill whenever the task involves editing markdown documentation or
+  inline code comments**, and follow its writing convention for any prose you add.
 
 The canonical export surface for users is `cgp::prelude` — see
 [crates/main/cgp/src/prelude.rs](crates/main/cgp/src/prelude.rs), which re-exports
@@ -18,7 +33,7 @@ prelude re-exports in [crates/main/cgp-core/src/prelude.rs](crates/main/cgp-core
 
 ## Commands
 
-This is a Cargo workspace (edition 2024, resolver 3). Toolchain is pinned to **1.93** via
+This is a Cargo workspace (edition 2024, resolver 3). Toolchain is pinned to **1.96** via
 [rust-toolchain.toml](rust-toolchain.toml). Nearly every crate is `#![no_std]` — keep new code
 `no_std`-compatible (use `core`/`alloc`, gate `std`/`alloc` usage behind features as existing crates
 do).
@@ -27,9 +42,14 @@ do).
   `cargo +nightly fmt --all` (check: `cargo +nightly fmt --all -- --check`)
 - **Lint:** `cargo clippy --all-features --all-targets -- -D warnings`
   and `cargo clippy --no-default-features --all-targets -- -D warnings`
-- **Test** (uses `cargo-nextest`): `cargo nextest run --all-features --no-fail-fast --workspace`
+- **Test** (uses `cargo-nextest`): `cargo nextest run --all-features --no-fail-fast --workspace`.
+  This runs the whole suite, including the `trybuild` compile-fail fixtures in
+  `cgp-compile-fail-tests` (an ordinary integration test, so nextest picks it up).
 - **Single test crate / test:** `cargo nextest run -p cgp-tests` or target one file with the
   standard test harness, e.g. `cargo test -p cgp-tests --test component`
+- **Compile-fail fixtures:** `cargo nextest run -p cgp-compile-fail-tests` runs the `trybuild`
+  cases that check macro *expansions* fail to compile with a pinned `.stderr`; regenerate the
+  snapshots with `TRYBUILD=overwrite cargo test -p cgp-compile-fail-tests`.
 - Many "tests" are **compile-time wiring checks** (`check_components!` /
   `delegate_and_check_components!`) and **macro-expansion snapshots** — for these, a successful
   `cargo build`/`cargo test` compilation *is* the passing test. A wiring mistake surfaces as a
@@ -95,18 +115,14 @@ as the behavior allows.
 
 ### Orient before touching anything
 
-Load the fundamentals first, every iteration. Invoke the `/cgp` skill to reload CGP's mental model
-and vocabulary, and the `/dual-reader-prose` skill to reload the writing convention the docs must
-follow. Re-invoke `/cgp` whenever the review moves into an unfamiliar construct — the macros and
-core traits are the ground truth the skill describes, so read the two together.
-
-Then read the documentation for the macro under review, in [docs/](docs). Read its reference
-document under [docs/reference/](docs/reference), its implementation documents under
+Perform the standing steps in [Orient before any task](#orient-before-any-task) first, every
+iteration. Then read the documentation specific to the macro under review, in [docs/](docs): its
+reference document under [docs/reference/](docs/reference), its implementation documents under
 [docs/implementation/](docs/implementation) (the `entrypoints/` document, the `asts/` stack it
-drives, and any `functions/` helpers it relies on), and the governing `CLAUDE.md` files that define
-how those documents stay in sync with the code: [docs/CLAUDE.md](docs/CLAUDE.md),
-[docs/implementation/CLAUDE.md](docs/implementation/CLAUDE.md), and
-[crates/macros/cgp-macro-core/CLAUDE.md](crates/macros/cgp-macro-core/CLAUDE.md). These establish
+drives, and any `functions/` helpers it relies on), and the governing `AGENTS.md` files that define
+how those documents stay in sync with the code: [docs/AGENTS.md](docs/AGENTS.md),
+[docs/implementation/AGENTS.md](docs/implementation/AGENTS.md), and
+[crates/macros/cgp-macro-core/AGENTS.md](crates/macros/cgp-macro-core/AGENTS.md). These establish
 that the source is the single source of truth and that reference, implementation, snapshot, and
 skill are four views of it that must never drift.
 
@@ -115,7 +131,7 @@ Next, study the implementation itself in [crates/macros/](crates/macros). Start 
 and the `functions/` helpers it calls, and read closely enough to reason about corner cases, not
 just the happy path. Finally, study the tests in [crates/tests/](crates/tests) — the behavioral
 tests in `cgp-tests` and the failure cases and expansion snapshots in `cgp-macro-tests` — and read
-[crates/tests/CLAUDE.md](crates/tests/CLAUDE.md) to learn how the suite is organized and how to run
+[crates/tests/AGENTS.md](crates/tests/AGENTS.md) to learn how the suite is organized and how to run
 and update it.
 
 ### Harden the implementation and its tests
@@ -127,7 +143,7 @@ readability edit introduce a behavioral change.
 - **Fix bugs and corner cases.** Identify potential bugs and unhandled corner cases in the
   implementation and fix them. When a corner case cannot be fixed in this iteration, capture it as a
   failure case in `cgp-macro-tests` and record it under the construct's Known issues, per
-  [crates/tests/CLAUDE.md](crates/tests/CLAUDE.md).
+  [crates/tests/AGENTS.md](crates/tests/AGENTS.md).
 - **Close test gaps.** Add tests for corner cases that are not yet covered, placing each in the
   concept target that owns the behavior and snapshotting only in the macro's owning target.
 - **Verify existing tests.** Confirm each existing test really exercises the behavior it claims to,
@@ -170,7 +186,13 @@ right input:
 - **Enumerate every way the output can expand.** Walk the shapes the expansion can take across the
   whole input space and confirm none can produce invalid Rust — no duplicate or conflicting `impl`
   blocks from a cartesian expansion, no unbound or doubly-declared generic parameter, no empty
-  expansion that silently checks nothing, and no clash on a generated identifier.
+  expansion that silently checks nothing, and no clash on a generated identifier. When you find a
+  case whose expansion fails to compile, capture it as a `trybuild` fixture in
+  `cgp-compile-fail-tests` — under `problematic/` when the macro should have rejected it or emitted
+  wrong code, or `acceptable/` when the failure is one CGP deliberately defers to the compiler — and
+  document it in the macro's implementation document, per
+  [crates/tests/AGENTS.md](crates/tests/AGENTS.md) and
+  [docs/implementation/AGENTS.md](docs/implementation/AGENTS.md).
 - **Scrutinize generics with care.** Generic parameters take many forms — lifetimes, types, consts,
   and the distinction between *impl* generics (`impl<T>`) and *type* generics (the `<T>` in
   `Foo<T>`) — and mixing them produces subtly wrong output. Confirm the macro keeps the kinds
@@ -180,11 +202,30 @@ right input:
   be emitted through the `crate::exports` markers so it resolves as `::cgp::macro_prelude::<Name>`,
   never as a bare or hand-written path — this is what lets a user with only `cgp` in scope compile
   the output. Grep the codegen for any CGP name that is not interpolated from an `exports` marker.
+- **Aim every generated item's span at the token the user wrote (watch for `call_site` leaks).** A
+  macro builds its output with `parse_internal!`/`quote!`, which stamp the structural tokens — the
+  `impl` keyword, the trait reference, the self type — with the macro's `call_site` span (the whole
+  invocation), while only the interpolated user fragments keep a narrower span. A compiler error that
+  reports on an item's header then underlines the *entire macro block* instead of the entry,
+  attribute, or impl the user actually wrote: a coherence conflict (`E0119`) between two generated
+  impls, an unsatisfied bound, or a name-resolution failure all read as "somewhere in this macro."
+  Re-span each generated item onto its originating token, following the
+  `delegate_components!`/`check_components!` pattern — the shared
+  [`override_span`](crates/macros/cgp-macro-core/src/functions/override_span.rs) helper re-spans an
+  item's tokens (restore the generics afterward so a per-entry generic's `E0207` keeps pointing at the
+  `<T>` the user wrote), and where the originating token is *synthesized* and has lost its span (a
+  `PathCons<..>` nest, a `Symbol`'s `Chars` encoding), carry an explicit span field through the
+  evaluated form as `EvaluatedCheckEntry.span` and `EvaluatedDelegateEntry.span` do — mirroring
+  `Symbol`, which keeps its parse-time span and stamps its output with `quote_spanned!`. The same leak
+  lurks in the provider macros (`#[cgp_impl]`, `#[cgp_provider]`, `#[cgp_new_provider]`) and every
+  other expansion, so confirm a duplicated or conflicting generated item points at the impl or
+  attribute the user wrote, not the macro name. These spans are testable: a `trybuild` `.stderr`
+  fixture records the exact line and column of each caret, so a span regression changes the snapshot
+  (see the `acceptable/delegate_components/duplicate_*` fixtures).
 
 Beyond these, weigh the concerns that recur across the macro suite: the hygiene of the reserved
-identifiers the expansion introduces (`__Component__`, `__Context__`, and the like), the span
-attached to each generated item so a downstream type error points at the token the user actually
-wrote, and the idempotency of the expansion when the same entry is listed more than once.
+identifiers the expansion introduces (`__Component__`, `__Context__`, and the like) and the
+idempotency of the expansion when the same entry is listed more than once.
 
 ### Keep every view in sync and verify
 

@@ -3,7 +3,7 @@ use std::mem;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 use syn::visit::{self, Visit};
-use syn::{Attribute, FnArg, Meta, Pat, PatIdent, PatType, Receiver, Type};
+use syn::{Attribute, FnArg, Meta, Pat, PatIdent, PatType, Receiver};
 
 use crate::functions::parse_field_type;
 use crate::types::implicits::{ImplicitArgField, ImplicitArgFields};
@@ -11,7 +11,7 @@ use crate::types::implicits::{ImplicitArgField, ImplicitArgFields};
 pub fn extract_and_parse_implicit_args(
     args: &mut Punctuated<FnArg, Comma>,
 ) -> syn::Result<ImplicitArgFields> {
-    let implicit_fn_args = extract_implicit_args(args);
+    let implicit_fn_args = extract_implicit_args(args)?;
 
     if implicit_fn_args.is_empty() {
         return Ok(ImplicitArgFields::default());
@@ -63,16 +63,12 @@ pub fn parse_implicit_arg(receiver: &Receiver, arg: &PatType) -> syn::Result<Imp
 
     let arg_type = arg.ty.as_ref().clone();
 
-    let (field_type, field_mode) = parse_field_type(&arg_type, &receiver.mutability)?;
-
-    // The field is read mutably only when the argument itself is a `&mut`
-    // reference. The receiver's mutability gates *whether* a `&mut` argument is
-    // allowed (checked in `parse_field_type`), but a `&mut self` receiver does not
-    // by itself force a mutable read of an immutably-typed argument.
-    let field_mut = match &arg_type {
-        Type::Reference(type_ref) => type_ref.mutability,
-        _ => None,
-    };
+    // `parse_field_type` derives the field-access mutability from the reference in
+    // the argument type — the outer `&mut` of a `&mut T`/`&mut [T]`, or the inner
+    // `&mut` of an `Option<&mut T>` — and rejects a mutable read without a `&mut
+    // self` receiver. The receiver's own mutability never forces a mutable read of
+    // an immutably-typed argument.
+    let (field_type, field_mode, field_mut) = parse_field_type(&arg_type, &receiver.mutability)?;
 
     let spec = ImplicitArgField {
         field_name: pat_ident.ident.clone(),
@@ -85,14 +81,14 @@ pub fn parse_implicit_arg(receiver: &Receiver, arg: &PatType) -> syn::Result<Imp
     Ok(spec)
 }
 
-pub fn extract_implicit_args(args: &mut Punctuated<FnArg, Comma>) -> Vec<PatType> {
+pub fn extract_implicit_args(args: &mut Punctuated<FnArg, Comma>) -> syn::Result<Vec<PatType>> {
     let mut implicit_args = Vec::new();
 
     let process_args = mem::take(args);
 
     for arg in process_args.into_iter() {
         if let FnArg::Typed(mut arg) = arg {
-            if is_implicit_arg(&mut arg) {
+            if is_implicit_arg(&mut arg)? {
                 implicit_args.push(arg);
             } else {
                 args.push(FnArg::Typed(arg));
@@ -102,10 +98,10 @@ pub fn extract_implicit_args(args: &mut Punctuated<FnArg, Comma>) -> Vec<PatType
         }
     }
 
-    implicit_args
+    Ok(implicit_args)
 }
 
-pub fn is_implicit_arg(arg: &mut PatType) -> bool {
+pub fn is_implicit_arg(arg: &mut PatType) -> syn::Result<bool> {
     let mut res = false;
 
     let attrs = mem::take(&mut arg.attrs);
@@ -113,12 +109,22 @@ pub fn is_implicit_arg(arg: &mut PatType) -> bool {
     for attr in attrs {
         if is_implicit_attr(&attr) {
             res = true;
+        } else if attr.path().is_ident("implicit") {
+            // `#[implicit]` is a bare marker; a list or name-value form such as
+            // `#[implicit(...)]` or `#[implicit = ...]` is a mistake. Reject it here
+            // rather than leaving the stray attribute on the parameter, where it
+            // would surface far downstream as an obscure "cannot find attribute
+            // `implicit`" error.
+            return Err(syn::Error::new_spanned(
+                &attr,
+                "`#[implicit]` does not take any arguments; write it as a bare `#[implicit]`",
+            ));
         } else {
             arg.attrs.push(attr);
         }
     }
 
-    res
+    Ok(res)
 }
 
 pub fn is_implicit_attr(attr: &Attribute) -> bool {

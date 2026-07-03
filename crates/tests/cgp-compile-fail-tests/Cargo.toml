@@ -7,6 +7,10 @@ repository   = { workspace = true }
 authors      = { workspace = true }
 rust-version = { workspace = true }
 keywords     = { workspace = true }
+readme       = "./README.md"
 
 [dependencies]
 cgp = { workspace = true }
+
+[dev-dependencies]
+trybuild = { version = "1.0.117" }

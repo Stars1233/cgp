@@ -54,7 +54,7 @@ Every provider-trait impl is paired with a matching `IsProviderFor` impl carryin
 
 **A single associated return type is supported and inferred from the field.** A getter trait may declare one `type Name;` used as the return type; the associated type is added as an extra generic parameter to each provider impl, set to itself via `type Name = Name;`, and any bound on it (for example `Name: Display`) is carried onto the impl with `Self::Name` rewritten to the parameter. More than one associated type, or an associated type alongside more than one method, is rejected during field parsing.
 
-**The return-type shorthands are shared with the auto-getter.** The `&str`-reads-`String`, `Option<&T>`-reads-`Option<T>`, `&[T]`-reads-`AsRef<[T]>`, `MRef<'_, T>`, and owned-`.clone()` conversions all come from the shared field-mode parsing, so `#[cgp_getter]` and [`#[cgp_auto_getter]`](cgp_auto_getter.md) treat a given signature identically — they differ only in the items they emit around the shared getter-method body.
+**The return-type shorthands are shared with the auto-getter.** The `&str`-reads-`String`, `Option<&T>`-reads-`Option<T>`, `&[T]`-reads-`AsRef<[T]>`, `MRef<'_, T>`, and owned-`.clone()` conversions, along with their mutable mirrors under a `&mut self` receiver (`&mut [T]`-reads-`AsMut<[T]>`, `Option<&mut T>` via `.as_mut()`), all come from the shared field-mode parsing, so `#[cgp_getter]` and [`#[cgp_auto_getter]`](cgp_auto_getter.md) treat a given signature identically — they differ only in the items they emit around the shared getter-method body.
 
 ## Snapshots
 
@@ -65,6 +65,8 @@ Every `snapshot_cgp_getter!` invocation across the suite is indexed here, since 
 - [getters/mref.rs](../../../crates/tests/cgp-tests/tests/getters/mref.rs) — an `MRef<'_, String>` return wrapping the borrow in `MRef::Ref`.
 - [getters/option.rs](../../../crates/tests/cgp-tests/tests/getters/option.rs) — an `Option<&String>` return reading an `Option<String>` field via `.as_ref()`.
 - [getters/slice.rs](../../../crates/tests/cgp-tests/tests/getters/slice.rs) — a `&[u8]` return reading any `AsRef<[u8]> + 'static` field via `.as_ref()`.
+- [getters/mut_getter.rs](../../../crates/tests/cgp-tests/tests/getters/mut_getter.rs) — a `&mut self` getter returning `&mut u32`: the `UseFields` and `UseField` impls read through `HasFieldMut`/`get_field_mut`, and the `WithProvider` impl delegates to a `MutFieldGetter` rather than a `FieldGetter`.
+- [getters/mut_slice.rs](../../../crates/tests/cgp-tests/tests/getters/mut_slice.rs) — a `&mut self` getter returning `&mut [u32]`: the mutable-slice path, where the `UseField` and `MutFieldGetter` bounds are the `AsMut<[u32]> + 'static` mirror of `slice.rs`'s `AsRef<[u32]>`.
 - [getters/non_self.rs](../../../crates/tests/cgp-tests/tests/getters/non_self.rs) — a non-`self` getter reading a field out of another type (`&Self::Foo`).
 - [getters/string_custom_name.rs](../../../crates/tests/cgp-tests/tests/getters/string_custom_name.rs) — `#[cgp_getter(GetString)]` overriding the provider name (and component).
 - [getters/string_custom_spec.rs](../../../crates/tests/cgp-tests/tests/getters/string_custom_spec.rs) — the brace-spec form overriding provider and component names independently.
@@ -74,12 +76,15 @@ Every `snapshot_cgp_getter!` invocation across the suite is indexed here, since 
 
 The `UseDelegate`-table dispatch form of a getter is snapshotted separately in [dispatching/use_delegate_getter.rs](../../../crates/tests/cgp-tests/tests/dispatching/use_delegate_getter.rs), which the dispatching concept owns rather than this entrypoint. One variant has no snapshot yet: a getter component carrying its own generic parameter (distinct from the auto-getter's `auto_getter_generic.rs`).
 
+The behavioral tests also assert the mutable full-getter resolves; see the Tests section.
+
 ## Tests
 
 The getter snapshot files also wire concrete contexts and assert the getters resolve, so the same files carry the behavioral checks:
 
 - [getters/string.rs](../../../crates/tests/cgp-tests/tests/getters/string.rs) and [getters/assoc_type_self_referential.rs](../../../crates/tests/cgp-tests/tests/getters/assoc_type_self_referential.rs) confirm that wiring `UseField<Symbol!("first_name")>` makes the getter read a field whose name differs from the method.
 - [getters/clone.rs](../../../crates/tests/cgp-tests/tests/getters/clone.rs), [getters/mref.rs](../../../crates/tests/cgp-tests/tests/getters/mref.rs), [getters/option.rs](../../../crates/tests/cgp-tests/tests/getters/option.rs), and [getters/slice.rs](../../../crates/tests/cgp-tests/tests/getters/slice.rs) verify each return-type shorthand at run time.
+- [getters/mut_getter.rs](../../../crates/tests/cgp-tests/tests/getters/mut_getter.rs) mutates the context through a `&mut self` getter wired to `UseField`, confirming the mutable provider impls resolve; [getters/mut_slice.rs](../../../crates/tests/cgp-tests/tests/getters/mut_slice.rs) does the same for a `&mut [u32]` getter over a `Vec<u32>` field, exercising the `AsMut<[T]>` bound.
 
 ## Source
 
