@@ -62,7 +62,9 @@ The **`#[cgp_impl(Self)]` passthrough** bypasses the whole rewrite: when the pro
 
 Because the macro starts from the user's own `syn::ItemImpl` and rewrites it in place, the provider impl and its derived `IsProviderFor` impl keep the user's spans on their `impl` keyword, generics, self type, and body — so a coherence conflict (`E0119`) between two providers already underlines the offending `#[cgp_impl]` block rather than the macro name, exactly as two hand-written impls would. Two tokens are synthesized rather than cloned, and both are aimed at what the user wrote so they cannot leak the `call_site` span: `to_raw_item_impl` gives the provider impl's `for` token the original `for` token's span (explicit `impl Trait for Context` form) or the provider trait path's span (bare `impl Trait` form), and the [`IsProviderFor` derivation](../asts/cgp_provider.md#itemproviderimpl-and-the-isproviderfor-derivation) reuses that same `for` token for its own header.
 
-The one wholly-synthesized item is each `#[default_impl]` delegation impl, built entirely from quasi-quoted tokens whose `impl`/`for` keywords carry `call_site`. `DefaultImplAttribute::to_item_impl` re-spans it onto the user-written key token — mirroring the `override_span` technique that [`delegate_components!`](delegate_components.md#error-spans) uses — while restoring the impl's generics afterward, so a conflict between two default impls for the same key points at the key inside `#[default_impl(Key in …)]` rather than at the whole `#[cgp_impl]` attribute.
+The one token in the derived `IsProviderFor<Component, …>` impl that stays on `call_site` is the derived component reference, and deliberately so. It anchors no caret, so a narrower span gains nothing, and giving it the provider trait's span would make go-to-definition on the provider trait a user wrote also offer the component struct — because rust-analyzer maps a source token to its expansion by source range. The [`IsProviderFor` derivation](../asts/cgp_provider.md#itemproviderimpl-and-the-isproviderfor-derivation) keeps it on `call_site`, off every user token's range.
+
+The one wholly-synthesized item is each `#[default_impl]` delegation impl, built entirely from quasi-quoted tokens whose `impl`/`{ … }` boundary carries `call_site`. `DefaultImplAttribute::to_item_impl` re-spans that boundary onto the user-written key token — with [`override_item_span`](delegate_components.md#error-spans), the same helper the `delegate_components!` impls use — so a conflict between two default impls for the same key points at the key inside `#[default_impl(Key in …)]` rather than at the whole `#[cgp_impl]` attribute. Only the boundary moves; the interior tokens — the provider type, a per-entry generic, each synthesized reference — keep their spans, so the user's tokens stay navigable in an IDE.
 
 ## Failure modes
 
@@ -84,8 +86,9 @@ Every `snapshot_cgp_impl!` invocation across the suite is indexed here, since th
 - [implicit_arguments/cgp_impl_implicit.rs](../../../crates/tests/cgp-tests/tests/implicit_arguments/cgp_impl_implicit.rs) — `#[implicit]` arguments dropped from the signature and turned into `HasField` reads, with the implicit `__Context__` inserted (the `for` clause omitted).
 - [higher_order_providers/use_provider_impl.rs](../../../crates/tests/cgp-tests/tests/higher_order_providers/use_provider_impl.rs) — a generic higher-order provider `ScaledArea<Inner>` with `#[use_provider]` completing the inner provider's bound.
 - [namespaces/default_impls.rs](../../../crates/tests/cgp-tests/tests/namespaces/default_impls.rs) — several `#[cgp_impl]` blocks (`ShowString`, `ShowWithDisplay`, `ShowU32`) providing a generic component, exercising the `#[default_impl]` companion attribute alongside the provider rewrite.
+- [basic_delegation/provider_component_override.rs](../../../crates/tests/cgp-tests/tests/basic_delegation/provider_component_override.rs) — the `: ComponentType` override: `#[cgp_impl(new FortyTwo: HasFooComponent)]` targets a component whose marker name (`HasFooComponent`) is not the derived `FooProviderComponent`, so the `IsProviderFor` impl names the overriding component rather than the default.
 
-The `#[cgp_impl(Self)]` bare-impl passthrough has no snapshot yet, and neither does a `#[cgp_impl]` carrying an explicit `: ComponentType` override.
+The `#[cgp_impl(Self)]` bare-impl passthrough has no snapshot yet.
 
 ## Tests
 
@@ -97,6 +100,7 @@ The behavioral tests confirm the lowered wiring works:
 - [basic_delegation/impl_self.rs](../../../crates/tests/cgp-tests/tests/basic_delegation/impl_self.rs) exercises the `#[cgp_impl(Self)]` passthrough: a consumer trait implemented directly on a concrete context, forwarding to a provider via `#[use_provider]`.
 - [basic_delegation/self_in_macro.rs](../../../crates/tests/cgp-tests/tests/basic_delegation/self_in_macro.rs) confirms the token-level `self` rewrite inside a macro body distinguishes a bare `self` value (rewritten) from a `self::` module path (left intact).
 - [basic_delegation/self_in_nested_item.rs](../../../crates/tests/cgp-tests/tests/basic_delegation/self_in_nested_item.rs) confirms the rewrite stops at a nested item: a local `impl Display for Wrapper` inside a provider method keeps its own `&self` receiver and `self.0` access while the outer `self.name()` is still rewritten to the context.
+- [basic_delegation/provider_component_override.rs](../../../crates/tests/cgp-tests/tests/basic_delegation/provider_component_override.rs) wires the overriding component (`HasFooComponent`) to the generated `FortyTwo` and confirms `App` implements `CanDoFoo` — proving the `: ComponentType` override is honored rather than ignored in favor of the derived name.
 
 The rejection cases confirm the macro refuses malformed input:
 
