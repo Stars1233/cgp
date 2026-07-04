@@ -54,7 +54,7 @@ delegate_components! {
 
 This is exactly equivalent to writing `AreaCalculatorComponent: RectangleGeometry` and `PerimeterCalculatorComponent: RectangleGeometry` on separate lines, plus the `GreeterComponent` entry — three entries in all.
 
-A `new` keyword in front of the target makes the macro define the target struct as well, saving a separate declaration. `new GeometryComponents { … }` emits `struct GeometryComponents;` alongside the table impls. This is the idiomatic way to declare a standalone provider bundle — a type whose only purpose is to hold a table that other contexts can then delegate to as a single unit:
+A `new` keyword in front of the target makes the macro define the target struct as well, saving a separate declaration. `new GeometryComponents { … }` emits `struct GeometryComponents;` alongside the table impls. This is the idiomatic way to declare an **aggregate provider** — a zero-sized provider whose only purpose is to hold a table that dispatches each component to a sub-provider, so that other contexts can delegate a whole group of components to it as a single unit:
 
 ```rust
 delegate_components! {
@@ -64,6 +64,8 @@ delegate_components! {
     }
 }
 ```
+
+An aggregate provider is a *provider*, not a context. `GeometryComponents` implements each component's provider trait by forwarding through its `DelegateComponent` table, and another context then delegates to it — `delegate_components! { App { [AreaCalculatorComponent, PerimeterCalculatorComponent]: GeometryComponents } }` — reusing the whole bundle in one line. Because it is never its own context, an aggregate provider is always wired with plain `delegate_components!`, never `delegate_and_check_components!`: the checked macro would assert that the aggregate can *use* each component as a context, but `GeometryComponents` has no fields and never implements a provider trait with itself as the context, so that assertion is meaningless and would fail. An aggregate provider is verified instead when a real context that delegates to it is checked; see [checking](checking.md).
 
 A leading generic list on the target makes the whole table generic, so one wiring applies across a family of contexts: `delegate_components! { <T> MyContext<T> { … } }` wires every `MyContext<T>` at once.
 
@@ -131,6 +133,14 @@ where
 So wiring a component to `UseContext` means "use whatever this context already does for this trait." Its purpose is to turn a context's existing consumer-trait impl into a provider that *another* provider can call. The pattern matters most for [higher-order providers](higher-order-providers.md), which take an inner provider as a type parameter and often default it to `UseContext`, so the inner step falls back to the context's own wiring unless an explicit provider is named.
 
 The one rule to respect is the circular-dependency caveat: never delegate a component to `UseContext` when the context's only impl of that component *is* the delegation itself. Doing so asks the context to implement the consumer trait by delegating to a provider (`UseContext`) that in turn implements the provider trait by calling the consumer trait — a cycle the trait solver cannot resolve, surfacing as an overflow or unsatisfied-bound compile error. `UseContext` is meant to be supplied to another provider as its inner provider, not wired as a context's own delegate for the same component.
+
+## Other providers you will see in tables: `WithProvider` and `UseDefault`
+
+Two more provider markers appear in real wiring often enough to recognize on sight. Both are ordinary zero-sized providers wired like any other, but neither carries behavior of its own — one adapts a lower-level provider into a component, and the other selects a component's own default method bodies.
+
+`WithProvider<Provider>` adapts a *foundational* provider into the provider a named component expects. CGP has two layers of provider: the component-specific provider traits a context wires (`NameGetter`, `NameTypeProvider`), and a handful of generic, component-agnostic mechanisms beneath them — [`FieldGetter`](functions-and-getters.md) reads *some* field for *some* tag, and [`TypeProvider`](abstract-types.md) supplies *some* abstract type — that do not know which component they serve. `WithProvider<Inner>` is the adapter that lets one of those foundational providers stand in for a named component by forwarding the component's method to it. You rarely write `WithProvider<…>` in full, because its common cases ship as aliases you *will* see wired: `WithField` and `WithFieldRef` (a `FieldGetter` as a getter component), `WithType` and `WithDelegatedType` (a `TypeProvider` as an abstract-type component), and `WithContext` (the context's own capability). Reading `NameGetterComponent: WithField<…>`, treat it as "this getter is served by the foundational field-getter named inside."
+
+`UseDefault` is the empty provider that selects a component's *own* default method bodies. A consumer trait may give its methods default bodies exactly as any Rust trait can; when every method is defaulted there is no behavior left for a provider to supply, yet the component still needs *some* provider in the table to be wired. `UseDefault` is the conventional name for that role — but unlike `UseContext` or `UseField`, no macro generates its impl, so the author writes an empty `#[cgp_impl(UseDefault)]` (or an empty impl on the concrete context) whose body falls through to the trait defaults. Wiring a component to `UseDefault` therefore reads as "use the trait's own defaults for this component."
 
 ## Dispatching a component per type with `open`
 

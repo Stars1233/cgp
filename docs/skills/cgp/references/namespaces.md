@@ -2,7 +2,7 @@
 
 A namespace is a reusable, named lookup table of component wirings that a context inherits wholesale and then selectively overrides — CGP's preset mechanism, expressed entirely at the type level with no runtime cost.
 
-As the component count of an application grows, the [wiring](wiring.md) on each context grows with it: every context spells out its own `delegate_components!` table entry by entry, and two contexts that should share the same set of providers must repeat the whole block. A namespace lifts that block out of any single context, gives it a name, and lets other contexts say "use everything in this namespace" to pull in the entire group at once. This is exactly the preset pattern — a curated bundle of defaults you adopt and then customize — and CGP has no separate `cgp_preset!` construct because a preset *is* a namespace. This file covers `#[cgp_namespace]` (defining and inheriting a namespace), the `RedirectLookup` provider that makes the indirection work, the `Path!` macro that addresses entries, and the `DefaultNamespace` family of default-resolution traits.
+As the component count of an application grows, the [wiring](wiring.md) on each context grows with it: every context spells out its own `delegate_components!` table entry by entry, and two contexts that should share the same set of providers must repeat the whole block. A namespace lifts that block out of any single context, gives it a name, and lets other contexts say "use everything in this namespace" to pull in the entire group at once. This is exactly the preset pattern — a curated bundle of defaults you adopt and then customize — and CGP has no separate `cgp_preset!` construct because a preset *is* a namespace. This file covers `cgp_namespace!` (defining and inheriting a namespace), the `RedirectLookup` provider that makes the indirection work, the `Path!` macro that addresses entries, and the `DefaultNamespace` family of default-resolution traits.
 
 ## What a namespace is
 
@@ -10,7 +10,7 @@ A namespace is not a context — it is a trait, named after the namespace, that 
 
 The forwarding is keyed by a *path* rather than a bare component name, and that is what makes inheritance and selective override possible. A path is a type-level list of symbols and component names; keying on it lets one namespace inherit from another, lets a parent's whole subtree be rerouted at once, and lets a child context shadow a single inherited entry without disturbing the rest.
 
-## Defining a namespace with `#[cgp_namespace]`
+## Defining a namespace with `cgp_namespace!`
 
 `cgp_namespace!` defines a namespace from a body that resembles a `delegate_components!` table. The `new` keyword tells the macro to emit the namespace's marker struct and its lookup trait; the entries inside map keys to redirect paths or to providers:
 
@@ -85,7 +85,7 @@ delegate_components! {
 }
 ```
 
-The `namespace DefaultNamespace;` line emits a blanket `DelegateComponent` impl on `AppA` that forwards every key through `DefaultNamespace<AppA>`, paired with the matching `IsProviderFor` forwarding so dependency errors stay diagnosable through [checking](checking.md). The direct `@test.ShowImplComponent.u64` line resolves first, so it wins for `u64` only — the inherit-and-override pattern in action. Joining through `delegate_and_check_components!` instead does the same while verifying the merged wiring.
+The `namespace DefaultNamespace;` line emits a blanket `DelegateComponent` impl on `AppA` that forwards every key through `DefaultNamespace<AppA>`, paired with the matching `IsProviderFor` forwarding so dependency errors stay diagnosable through [checking](checking.md). The direct `@test.ShowImplComponent.u64` line resolves first, so it wins for `u64` only — the inherit-and-override pattern in action. Joining through `delegate_and_check_components!` does the same and additionally checks the entries the block writes directly, but its derivation does not cover the components the namespace itself brings in — so verifying the full inherited wiring is a job for a standalone `check_components!` (see [checking](checking.md)).
 
 ## Paths with `Path!`
 
@@ -98,7 +98,7 @@ type ErrorRoute = Path!(@app.error.ErrorRaiserComponent);
 //         PathCons<ErrorRaiserComponent, Nil>>>
 ```
 
-The encoding of each segment is decided by its first character: a single lowercase identifier that is not a primitive type name (like `app` or `error`) becomes a [`Symbol`](abstract-types.md) type-level string, while every capitalized segment (like `ErrorRaiserComponent`) is kept as the named type — typically a component key or namespace marker. The macro folds the segments right-to-left onto `Nil`, wrapping each in a `PathCons`. You rarely call `Path!` directly; the same `@`-path syntax is embedded inside `#[cgp_namespace]` entries and `#[prefix(...)]` attributes, which is where paths are most often written. These [type-level primitives](type-level-primitives.md) carry no runtime value.
+The encoding of each segment is decided by its first character: a single lowercase identifier that is not a primitive type name (like `app` or `error`) becomes a [`Symbol`](abstract-types.md) type-level string, while every capitalized segment (like `ErrorRaiserComponent`) is kept as the named type — typically a component key or namespace marker. The macro folds the segments right-to-left onto `Nil`, wrapping each in a `PathCons`. You rarely call `Path!` directly; the same `@`-path syntax is embedded inside `cgp_namespace!` entries and `#[prefix(...)]` attributes, which is where paths are most often written. These [type-level primitives](type-level-primitives.md) carry no runtime value.
 
 ## The `RedirectLookup` provider
 
@@ -152,7 +152,7 @@ delegate_components! {
 }
 ```
 
-The `for <T, Provider> in DefaultImpls1<ShowImplComponent>` loop wires each type `T` by reading `T: DefaultImpls1<ShowImplComponent, App, Delegate = Provider>`, and the direct `u64` line shadows whatever the namespace would otherwise supply for that type. The loop target can equally be a whole namespace defined with `cgp_namespace!`, such as the `DefaultShowComponents` namespace shown earlier — `for <T, Provider> in DefaultShowComponents { … }` wires its listed types through the same projection.
+The `for <T, Provider> in DefaultImpls1<ShowImplComponent>` loop wires each type `T` by reading `T: DefaultImpls1<ShowImplComponent, App, Delegate = Provider>`, and the direct `u64` line shadows whatever the namespace would otherwise supply for that type. The loop target can equally be a whole namespace defined with `cgp_namespace!`, such as the `DefaultShowComponents` namespace shown earlier — `for <T, Provider> in DefaultShowComponents { … }` wires its listed types through the same projection. An optional `where` clause after the loop target (`for <T, Provider> in Table where T: Clone { … }`) adds its bounds to every impl the loop emits, narrowing which types it wires.
 
 ## Defining a preset once, reusing it across contexts
 

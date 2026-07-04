@@ -128,7 +128,7 @@ where
 }
 ```
 
-The macro expands this into the provider impl above plus `impl<Context> IsProviderFor<AreaCalculatorComponent, Context> for RectangleArea where Context: HasDimensions {}`. A concrete context wires the component to `RectangleArea` exactly as it would for any provider, through [`delegate_components!`](delegate_components.md), and the `IsProviderFor` impl ensures that a context missing the `HasDimensions` dependency produces an error naming that dependency rather than an opaque one.
+The macro expands this into the provider impl above plus `impl<Context> IsProviderFor<AreaCalculatorComponent, Context, ()> for RectangleArea where Context: HasDimensions {}`. A concrete context wires the component to `RectangleArea` exactly as it would for any provider, through [`delegate_components!`](delegate_components.md), and the `IsProviderFor` impl ensures that a context missing the `HasDimensions` dependency produces an error naming that dependency rather than an opaque one.
 
 In most code, the same provider would be written more concisely with [`#[cgp_impl]`](cgp_impl.md), which lets the body use `self`/`Self` and omit the explicit `Context` parameter. `#[cgp_provider]` is the right choice when you prefer to work directly in the provider trait's own form, or when reading code that another tool or macro has already lowered to that form.
 
@@ -139,6 +139,6 @@ In most code, the same provider would be written more concisely with [`#[cgp_imp
 ## Source
 
 - Entry point: `cgp_provider` in [crates/macros/cgp-macro-lib/src/cgp_provider.rs](../../../crates/macros/cgp-macro-lib/src/cgp_provider.rs), which parses the optional component argument, lowers the impl, and emits the result.
-- Logic: [crates/macros/cgp-macro-core/src/types/cgp_provider/](../../../crates/macros/cgp-macro-core/src/types/cgp_provider/) — attribute argument parsing (the optional `new` keyword and component type) in `args.rs`; the lowering that derives the component default, the provider struct, and the `IsProviderFor` impl in `item.rs`; the emitted-token assembly in `lower.rs`; and the splitting of provider-trait arguments into context and `Params` tuple in `provider_impl_args.rs`.
+- Logic: [crates/macros/cgp-macro-core/src/types/cgp_provider/](../../../crates/macros/cgp-macro-core/src/types/cgp_provider/) — attribute argument parsing (the optional component type) in `args.rs`; the lowering that derives the component default, the provider struct, and the `IsProviderFor` impl in `item.rs`; the emitted-token assembly in `lower.rs`; and the splitting of provider-trait arguments into context and `Params` tuple in `provider_impl_args.rs`.
 - `IsProviderFor` derivation: [crates/macros/cgp-macro-core/src/types/provider_impl.rs](../../../crates/macros/cgp-macro-core/src/types/provider_impl.rs).
 - Internal walkthrough (pipeline, generated items, corner cases, and the index of tests and snapshots): [implementation/entrypoints/cgp_provider.md](../../implementation/entrypoints/cgp_provider.md).

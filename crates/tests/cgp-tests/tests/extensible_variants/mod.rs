@@ -16,8 +16,14 @@ pub mod has_fields_enum_generic;
 // concrete enum, a generic enum, and an enum whose variants carry struct
 // payloads.
 pub mod derive_cgp_data;
+pub mod derive_cgp_data_empty;
 pub mod derive_cgp_data_generic;
 pub mod derive_cgp_data_shape;
+
+// Regression: `#[derive(CgpData)]` on an enum whose own lifetime is named `'a`,
+// which the borrowed extractor's reserved `'__a__` lifetime must not collide
+// with. A plain behavioral test — the expansion shape is pinned above.
+pub mod derive_cgp_data_lifetime;
 
 // Dispatching an extensible-variant input to per-variant handlers (the derives
 // here are plain scaffolding — the dispatch combinators are owned elsewhere).
