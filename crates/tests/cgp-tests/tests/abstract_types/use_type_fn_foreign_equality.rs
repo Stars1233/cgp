@@ -1,9 +1,9 @@
 //! `#[use_type]` chaining an imported associated type into a *nested* foreign type
 //! source, with type-equality, in a `#[cgp_fn]`:
-//! `#[use_type(HasTypes.Types, @Types.HasScalarType.{Scalar = f64})]`.
+//! `#[use_type(HasTypes.Types, HasScalarType.{Scalar = f64} in Types)]`.
 //!
 //! `HasTypes::Types` imports the abstract `Types` from `Self`, then
-//! `@Types::HasScalarType::{Scalar = f64}` resolves `Scalar` against *that*
+//! `HasScalarType.{Scalar = f64} in Types` resolves `Scalar` against *that*
 //! imported type and pins it to `f64`, so the bare `Scalar` alias rewrites to the
 //! two-hop `<<Self as HasTypes>::Types as HasScalarType>::Scalar` and the impl
 //! gains `<Self as HasTypes>::Types: HasScalarType<Scalar = f64>`. The `#[cgp_fn]`
@@ -28,7 +28,7 @@ snapshot_cgp_fn! {
     #[cgp_fn]
     #[use_type(
         HasTypes.Types,
-        @Types.HasScalarType.{Scalar = f64},
+        HasScalarType.{Scalar = f64} in Types,
     )]
     pub fn rectangle_area(&self, #[implicit] width: Scalar, #[implicit] height: Scalar) -> Scalar {
         let res: f64 = width * height;
@@ -37,7 +37,10 @@ snapshot_cgp_fn! {
 
     expand_rectangle_area(output) {
         insta::assert_snapshot!(output, @"
-        pub trait RectangleArea: HasTypes {
+        pub trait RectangleArea: HasTypes
+        where
+            <Self as HasTypes>::Types: HasScalarType,
+        {
             fn rectangle_area(&self) -> <<Self as HasTypes>::Types as HasScalarType>::Scalar;
         }
         impl<__Context__> RectangleArea for __Context__
